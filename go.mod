@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/curltech/go-colla-core v0.1.20
-	github.com/curltech/go-colla-web v0.0.1
+	github.com/curltech/go-colla-web v0.0.2
 	github.com/go-gota/gota v0.12.0
 	github.com/googollee/go-socket.io v1.6.2 // indirect
 	github.com/iris-contrib/middleware/casbin v0.0.0-20221224052405-ebfc293d7869 // indirect
@@ -28,6 +28,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/casbin/casbin/v2 v2.60.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
+	github.com/curltech/go-colla-biz v0.0.18 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eknkc/amber v0.0.0-20171010120322-cdade1c07385 // indirect
