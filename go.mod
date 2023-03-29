@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/curltech/go-colla-core v0.1.20
-	github.com/curltech/go-colla-web v0.0.2
+	github.com/curltech/go-colla-web v0.0.4
 	github.com/go-gota/gota v0.12.0
 	github.com/googollee/go-socket.io v1.6.2 // indirect
 	github.com/iris-contrib/middleware/casbin v0.0.0-20221224052405-ebfc293d7869 // indirect
