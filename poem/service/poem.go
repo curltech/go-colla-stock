@@ -13,7 +13,8 @@ import (
 
 var seqname = "seq_poem"
 
-/**
+/*
+*
 同步表结构，服务继承基本服务的方法
 */
 type PoemService struct {
@@ -56,7 +57,8 @@ func (this *PoemService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-/**
+/*
+*
 读目录下的数据
 */
 func (this *PoemService) ParsePath(src string) error {

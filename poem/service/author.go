@@ -10,7 +10,8 @@ import (
 	"io/ioutil"
 )
 
-/**
+/*
+*
 同步表结构，服务继承基本服务的方法
 */
 type AuthorService struct {
