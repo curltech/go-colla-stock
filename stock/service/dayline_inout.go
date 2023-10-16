@@ -29,11 +29,11 @@ type InOutPoint struct {
 	Count     int64                    `json:"count,omitempty"`
 }
 
-func (this *DayLineService) FindAllInOutEvent(ts_code string, eventCode string, startDate int64, endDate int64, compareValue float64, condNum int) map[string][]*entity.DayLine {
+func (svc *DayLineService) FindAllInOutEvent(ts_code string, eventCode string, startDate int64, endDate int64, compareValue float64, condNum int) map[string][]*entity.DayLine {
 	ecs := strings.Split(eventCode, ",")
 	InOutEventMap := make(map[string][]*entity.DayLine)
 	for _, ec := range ecs {
-		inOutPoint, _ := this.FindInOutEvent(ts_code, 0, ec, nil, startDate, endDate, compareValue, condNum, 0, 0, 0)
+		inOutPoint, _ := svc.FindInOutEvent(ts_code, 0, ec, nil, startDate, endDate, compareValue, condNum, 0, 0, 0)
 		if inOutPoint != nil {
 			InOutEventMap[ec] = inOutPoint.Data
 		}
@@ -42,24 +42,25 @@ func (this *DayLineService) FindAllInOutEvent(ts_code string, eventCode string, 
 	return InOutEventMap
 }
 
-func (this *DayLineService) FindInOutEvent(ts_code string, tradedate int64, eventCode string, filterParas []interface{}, startDate int64, endDate int64, compareValue float64, condNum int, from int, limit int, count int64) (*InOutPoint, error) {
+func (svc *DayLineService) FindInOutEvent(ts_code string, tradedate int64, eventCode string, filterParas []interface{}, startDate int64, endDate int64, compareValue float64, condNum int, from int, limit int, count int64) (*InOutPoint, error) {
 	efs, ok := GetEventFilterService().GetCacheEventFilter()[eventCode]
 	if !ok {
 		return nil, errors.New("eventCode err")
 	}
-	con, fields := this.buildConds(efs, compareValue, condNum)
+	con, fields := svc.buildConds(efs, compareValue, condNum)
 	if con == "" {
 		return nil, errors.New("content err")
 	}
-	inOutPoint, err := this.FindFlexPoint(ts_code, tradedate, fields, con, filterParas, startDate, endDate, from, limit, count)
+	inOutPoint, err := svc.FindFlexPoint(ts_code, tradedate, fields, con, filterParas, startDate, endDate, from, limit, count)
 
 	return inOutPoint, err
 }
 
-/**
+/*
+*
 compareValue是负数，表示放宽比较值，缺省是-0.01；num是负数，表示放宽条件个数，缺省是0
 */
-func (this *DayLineService) buildConds(efs []*entity.EventFilter, compareValue float64, condNum int) (string, []string) {
+func (svc *DayLineService) buildConds(efs []*entity.EventFilter, compareValue float64, condNum int) (string, []string) {
 	cond := ""
 	fields := make([]string, 0)
 	k := 0
@@ -101,7 +102,7 @@ func (this *DayLineService) buildConds(efs []*entity.EventFilter, compareValue f
 	return cond, fields
 }
 
-func (this *DayLineService) FindFlexPoint(ts_code string, tradedate int64, fields []string, eventContent string, filterParas []interface{}, startDate int64, endDate int64, from int, limit int, count int64) (*InOutPoint, error) {
+func (svc *DayLineService) FindFlexPoint(ts_code string, tradedate int64, fields []string, eventContent string, filterParas []interface{}, startDate int64, endDate int64, from int, limit int, count int64) (*InOutPoint, error) {
 	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	conds += " and ma3close is not null and ma3close!=0 and (high-low)!=0"
@@ -110,31 +111,31 @@ func (this *DayLineService) FindFlexPoint(ts_code string, tradedate int64, field
 	if tradedate != 0 {
 		conds = conds + " and tradedate=?"
 		paras = append(paras, tradedate)
-	} else {
-		if eventContent != "" {
-			conds = conds + " and " + eventContent
-			if filterParas != nil && len(filterParas) > 0 {
-				paras = append(paras, filterParas...)
-			}
-		}
-		if startDate != 0 {
-			conds = conds + " and tradedate>?"
-			paras = append(paras, startDate)
-		}
-		if endDate != 0 {
-			conds += " and tradedate<=?"
-			paras = append(paras, endDate)
-		}
-		condiBean := &entity.DayLine{}
-		if count == 0 {
-			count, err = this.Count(condiBean, conds, paras...)
-			if err != nil {
-				return nil, err
-			}
-			inOutPoint.Count = count
+	}
+	if eventContent != "" {
+		conds = conds + " and " + eventContent
+		if filterParas != nil && len(filterParas) > 0 {
+			paras = append(paras, filterParas...)
 		}
 	}
-	err = this.Find(&dayLines, nil, "tscode,tradedate desc", from, limit, conds, paras...)
+	if startDate != 0 {
+		conds = conds + " and tradedate>?"
+		paras = append(paras, startDate)
+	}
+	if endDate != 0 {
+		conds += " and tradedate<=?"
+		paras = append(paras, endDate)
+	}
+	condiBean := &entity.DayLine{}
+	if count == 0 {
+		count, err = svc.Count(condiBean, conds, paras...)
+		if err != nil {
+			return nil, err
+		}
+		inOutPoint.Count = count
+	}
+
+	err = svc.Find(&dayLines, nil, "tscode,tradedate desc", from, limit, conds, paras...)
 	if err != nil {
 		return inOutPoint, err
 	}
@@ -147,7 +148,7 @@ func (this *DayLineService) FindFlexPoint(ts_code string, tradedate int64, field
 		sql = sql + " limit " + fmt.Sprint(limit)
 	}
 	sql = sql + " offset " + fmt.Sprint(from)
-	results, err := this.Query(sql, paras...)
+	results, err := svc.Query(sql, paras...)
 	if err != nil {
 		return inOutPoint, err
 	}

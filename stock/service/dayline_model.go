@@ -13,10 +13,11 @@ import (
 	"strings"
 )
 
-/**
+/*
+*
 获取某只股票最新的日期
 */
-func (this *DayLineService) FindModelData(ts_code string, industry string, startDate int64) ([]*entity.DayLine, error) {
+func (svc *DayLineService) FindModelData(ts_code string, industry string, startDate int64) ([]*entity.DayLine, error) {
 	var conds string
 	var paras []interface{}
 	if ts_code != "" {
@@ -31,17 +32,17 @@ func (this *DayLineService) FindModelData(ts_code string, industry string, start
 		conds = conds + " and tradedate >= ?"
 		paras = append(paras, startDate)
 	}
-	err := this.Find(&dayLines, cond, "tscode,tradedate", 0, 0, conds, paras...)
+	err := svc.Find(&dayLines, cond, "tscode,tradedate", 0, 0, conds, paras...)
 
 	return dayLines, err
 }
 
-func (this *DayLineService) WriteAllFile(startDate int64) error {
+func (svc *DayLineService) WriteAllFile(startDate int64) error {
 	v, _ := config.Get("stock.src")
 	src := v.(string)
 	src = src + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(stock.CurrentDate())
 	stock.Mkdir(src)
-	routinePool := thread.CreateRoutinePool(10, this.AsyncWriteFile, nil)
+	routinePool := thread.CreateRoutinePool(10, svc.AsyncWriteFile, nil)
 	defer routinePool.Release()
 	ts_codes, _ := GetShareService().GetCacheShare()
 	for _, ts_code := range ts_codes {
@@ -55,21 +56,21 @@ func (this *DayLineService) WriteAllFile(startDate int64) error {
 	return nil
 }
 
-func (this *DayLineService) AsyncWriteFile(para interface{}) {
+func (svc *DayLineService) AsyncWriteFile(para interface{}) {
 	src := (para.([]interface{}))[0].(string)
 	ts_code := (para.([]interface{}))[1].(string)
 	startDate := (para.([]interface{}))[2].(int64)
-	this.WriteFile(src, ts_code, startDate)
+	svc.WriteFile(src, ts_code, startDate)
 }
 
-func (this *DayLineService) WriteFile(src string, ts_code string, startDate int64) error {
+func (svc *DayLineService) WriteFile(src string, ts_code string, startDate int64) error {
 	if src == "" {
 		v, _ := config.Get("stock.src")
 		src = v.(string)
 		src = src + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(stock.CurrentDate())
 		stock.Mkdir(src)
 	}
-	daylines, err := this.FindModelData(ts_code, "", startDate)
+	daylines, err := svc.FindModelData(ts_code, "", startDate)
 	if err != nil {
 		logger.Sugar.Errorf("%v FindModelData failure!", ts_code)
 	}
