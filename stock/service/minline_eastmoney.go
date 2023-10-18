@@ -14,14 +14,12 @@ import (
 	"strings"
 )
 
-/**
-获取某只股票最新的日期和分钟
-*/
-func (this *MinLineService) findMaxTradeDate(secId string) (int64, int64, error) {
+// 获取某只股票最新的日期和分钟
+func (svc *MinLineService) findMaxTradeDate(secId string) (int64, int64, error) {
 	cond := &entity.MinLine{}
 	cond.TsCode = secId
 	minLines := make([]*entity.MinLine, 0)
-	err := this.Find(&minLines, cond, "tradedate desc,trademinute desc", 0, 1, "")
+	err := svc.Find(&minLines, cond, "tradedate desc,trademinute desc", 0, 1, "")
 	if err != nil {
 		return 0, 0, err
 	}
@@ -32,10 +30,8 @@ func (this *MinLineService) findMaxTradeDate(secId string) (int64, int64, error)
 	return 0, 0, nil
 }
 
-/**
-获取过去的分钟数据
-*/
-func (this *MinLineService) GetMinLine(secId string, beg int, limit int, klt int) ([]*entity.MinLine, error) {
+// GetMinLine 获取过去的分钟数据
+func (svc *MinLineService) GetMinLine(secId string, beg int, limit int, klt int) ([]*entity.MinLine, error) {
 	klines, err := GetDayLineService().GetKLine(secId, beg, 0, limit, klt)
 	if err != nil {
 		return nil, err
@@ -53,9 +49,9 @@ func (this *MinLineService) GetMinLine(secId string, beg int, limit int, klt int
 
 type TodayMinLineResponseData struct {
 	Code        string   `json:"code,omitempty"`
-	Market      string   `json:"code,omitempty"`
-	Name        string   `json:"code,omitempty"`
-	Decimal     int      `json:"code,omitempty"`        //小数位
+	Market      string   `json:"market,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Decimal     int      `json:"decimal,omitempty"`     //小数位
 	TrendsTotal int      `json:"trendsTotal,omitempty"` //总记录数
 	PrePrice    float64  `json:"prePrice,omitempty"`
 	PreClose    float64  `json:"preClose,omitempty"`
@@ -71,10 +67,8 @@ type TodayMinLineResponseResult struct {
 	Data *TodayMinLineResponseData `json:"data,omitempty"`
 }
 
-/**
-获取当日的分钟数据
-*/
-func (this *MinLineService) GetTodayMinLine(secId string) ([]*entity.MinLine, error) {
+// GetTodayMinLine 获取当日的分钟数据
+func (svc *MinLineService) GetTodayMinLine(secId string) ([]*entity.MinLine, error) {
 	params := eastmoney.CreateDayLineRequestParam()
 	params.SecId = getSecId(secId)
 	params.Fields1 = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13"
@@ -225,10 +219,8 @@ func strToTodayMinLine(secId string, kline string) (*entity.MinLine, error) {
 	return minLine, nil
 }
 
-/**
-获取当日的资金流向分钟数据
-*/
-func (this *MinLineService) GetTodayFinanceFlow(secId string) ([]*entity.MinLine, error) {
+// GetTodayFinanceFlow 获取当日的资金流向分钟数据
+func (svc *MinLineService) GetTodayFinanceFlow(secId string) ([]*entity.MinLine, error) {
 	params := eastmoney.CreateFinanceFlowRequestParam()
 	params.SecId = getSecId(secId)
 	params.Fields1 = "f1,f2,f3,f7"
@@ -316,14 +308,14 @@ func strToMinLineFinanceFlow(secId string, kline string) (*entity.MinLine, error
 	return minLine, nil
 }
 
-func (this *MinLineService) RefreshMinLine(beg int64) error {
+func (svc *MinLineService) RefreshMinLine(beg int64) error {
 	processLog := GetProcessLogService().StartLog("minline", "RefreshMinLine", "")
-	routinePool := thread.CreateRoutinePool(10, this.AsyncUpdateMinLine, nil)
+	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateMinLine, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		para = append(para, beg)
 		para = append(para, 10000)
 		routinePool.Invoke(para)
@@ -334,16 +326,19 @@ func (this *MinLineService) RefreshMinLine(beg int64) error {
 	return nil
 }
 
-func (this *MinLineService) AsyncUpdateMinLine(para interface{}) {
+func (svc *MinLineService) AsyncUpdateMinLine(para interface{}) {
 	secId := (para.([]interface{}))[0].(string)
 	beg := (para.([]interface{}))[1].(int64)
 	limit := (para.([]interface{}))[2].(int)
-	this.GetUpdateMinLine(secId, beg, limit)
+	_, err := svc.GetUpdateMinLine(secId, beg, limit)
+	if err != nil {
+		return
+	}
 }
 
-func (this *MinLineService) GetUpdateMinLine(secId string, beg int64, limit int) ([]*entity.MinLine, error) {
+func (svc *MinLineService) GetUpdateMinLine(secId string, beg int64, limit int) ([]*entity.MinLine, error) {
 	processLog := GetProcessLogService().StartLog("minline", "GetUpdateMinLine", secId)
-	ps, err := this.UpdateMinLine(secId, beg, limit)
+	ps, err := svc.UpdateMinLine(secId, beg, limit)
 	if err != nil {
 		GetProcessLogService().EndLog(processLog, "", err.Error())
 		return ps, err
@@ -352,10 +347,10 @@ func (this *MinLineService) GetUpdateMinLine(secId string, beg int64, limit int)
 	return ps, err
 }
 
-func (this *MinLineService) UpdateMinLine(secId string, beg int64, limit int) ([]*entity.MinLine, error) {
+func (svc *MinLineService) UpdateMinLine(secId string, beg int64, limit int) ([]*entity.MinLine, error) {
 	var minute int64 = 0
 	if beg < 0 {
-		beg, minute, _ = this.findMaxTradeDate(secId)
+		beg, minute, _ = svc.findMaxTradeDate(secId)
 		if beg > 0 {
 			if minute >= 900 {
 				beg++
@@ -367,7 +362,7 @@ func (this *MinLineService) UpdateMinLine(secId string, beg int64, limit int) ([
 				//minLine := &entity.MinLine{}
 				//minLine.TsCode = secId
 				//minLine.TradeDate = beg
-				//this.Delete(minLine, "")
+				//svc.Delete(minLine, "")
 			}
 		}
 	}
@@ -375,7 +370,7 @@ func (this *MinLineService) UpdateMinLine(secId string, beg int64, limit int) ([
 	if beg > 0 && beg > today {
 		return nil, errors.New("data is updated")
 	}
-	minLines, err := this.GetMinLine(secId, int(beg), limit, 1)
+	minLines, err := svc.GetMinLine(secId, int(beg), limit, 1)
 	if err != nil {
 		return nil, errors.New("")
 	}
@@ -396,20 +391,20 @@ func (this *MinLineService) UpdateMinLine(secId string, beg int64, limit int) ([
 	}
 	if len(minLines) > 0 {
 		//对新的数据更新到数据库
-		return this.UpdateTodayFinanceFlow(minLines, secId)
+		return svc.UpdateTodayFinanceFlow(minLines, secId)
 	}
 
 	return minLines, nil
 }
 
-func (this *MinLineService) RefreshTodayMinLine() error {
+func (svc *MinLineService) RefreshTodayMinLine() error {
 	processLog := GetProcessLogService().StartLog("minline", "RefreshTodayMinLine", "")
-	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, this.AsyncUpdateTodayMinLine, nil)
+	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateTodayMinLine, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		routinePool.Invoke(para)
 	}
 	routinePool.Wait(nil)
@@ -417,14 +412,17 @@ func (this *MinLineService) RefreshTodayMinLine() error {
 	return nil
 }
 
-func (this *MinLineService) AsyncUpdateTodayMinLine(para interface{}) {
+func (svc *MinLineService) AsyncUpdateTodayMinLine(para interface{}) {
 	secId := (para.([]interface{}))[0].(string)
-	this.GetUpdateTodayMinLine(secId)
+	_, err := svc.GetUpdateTodayMinLine(secId)
+	if err != nil {
+		return
+	}
 }
 
-func (this *MinLineService) GetUpdateTodayMinLine(secId string) ([]*entity.MinLine, error) {
+func (svc *MinLineService) GetUpdateTodayMinLine(secId string) ([]*entity.MinLine, error) {
 	//processLog := GetProcessLogService().StartLog("minline", "GetUpdateTodayMinLine", secId)
-	ps, err := this.UpdateTodayMinLine(secId)
+	ps, err := svc.UpdateTodayMinLine(secId)
 	if err != nil {
 		//GetProcessLogService().EndLog(processLog, "", err.Error())
 		return ps, err
@@ -432,11 +430,9 @@ func (this *MinLineService) GetUpdateTodayMinLine(secId string) ([]*entity.MinLi
 	return ps, err
 }
 
-/**
-获取今天的分钟数据，并更新数据库
-*/
-func (this *MinLineService) UpdateTodayMinLine(secId string) ([]*entity.MinLine, error) {
-	minLines, err := this.GetTodayMinLine(secId)
+// UpdateTodayMinLine 获取今天的分钟数据，并更新数据库
+func (svc *MinLineService) UpdateTodayMinLine(secId string) ([]*entity.MinLine, error) {
+	minLines, err := svc.GetTodayMinLine(secId)
 	if err != nil {
 		logger.Sugar.Errorf("Error:%v", err.Error())
 		return nil, err
@@ -444,7 +440,7 @@ func (this *MinLineService) UpdateTodayMinLine(secId string) ([]*entity.MinLine,
 	if len(minLines) > 0 {
 		minLine := minLines[0]
 		//当前已有的最大日期和分钟
-		beg, minute, _ := this.findMaxTradeDate(secId)
+		beg, minute, _ := svc.findMaxTradeDate(secId)
 		if beg > minLine.TradeDate { //当前有的比下载的大，说明数据已经存在
 			logger.Sugar.Errorf("today:%v minline data exist", beg)
 			return nil, errors.New("today minline data exist")
@@ -463,12 +459,12 @@ func (this *MinLineService) UpdateTodayMinLine(secId string) ([]*entity.MinLine,
 			}
 			if len(minLines) > 0 {
 				//对新的数据更新到数据库
-				return this.UpdateTodayFinanceFlow(minLines, secId)
+				return svc.UpdateTodayFinanceFlow(minLines, secId)
 			}
 		} else {
 			if len(minLines) > 0 {
 				//对新的数据更新到数据库
-				return this.UpdateTodayFinanceFlow(minLines, secId)
+				return svc.UpdateTodayFinanceFlow(minLines, secId)
 			}
 		}
 
@@ -477,12 +473,12 @@ func (this *MinLineService) UpdateTodayMinLine(secId string) ([]*entity.MinLine,
 	return nil, errors.New("minLines len 0")
 }
 
-func (this *MinLineService) UpdateTodayFinanceFlow(minLines []*entity.MinLine, secId string) ([]*entity.MinLine, error) {
-	ffs, err := this.GetTodayFinanceFlow(secId)
+func (svc *MinLineService) UpdateTodayFinanceFlow(minLines []*entity.MinLine, secId string) ([]*entity.MinLine, error) {
+	ffs, err := svc.GetTodayFinanceFlow(secId)
 	if err != nil {
 		logger.Sugar.Errorf("Error:%v", err.Error())
 	}
-	mls := make(map[string]*entity.MinLine, 0)
+	mls := make(map[string]*entity.MinLine)
 	for _, ff := range ffs {
 		mls[ff.TsCode+":"+fmt.Sprint(ff.TradeDate)+":"+fmt.Sprint(ff.TradeMinute)] = ff
 	}
@@ -504,7 +500,7 @@ func (this *MinLineService) UpdateTodayFinanceFlow(minLines []*entity.MinLine, s
 		}
 		ps = append(ps, minLine)
 	}
-	_, err = this.Upsert(ps...)
+	_, err = svc.Upsert(ps...)
 	if err != nil {
 		logger.Sugar.Errorf("Error: %s", err.Error())
 		return minLines, err
@@ -513,16 +509,25 @@ func (this *MinLineService) UpdateTodayFinanceFlow(minLines []*entity.MinLine, s
 	return minLines, nil
 }
 
-func (this *MinLineService) Cron() *cron.Cron {
+func (svc *MinLineService) Cron() *cron.Cron {
 	c := cron.New()
-	c.AddFunc("0 0/10 9-15 * * 1-5", this.RefreshToday)
+	err := c.AddFunc("0 0/10 9-15 * * 1-5", svc.RefreshToday)
+	if err != nil {
+		return nil
+	}
 	c.Start()
 
 	return c
 }
 
-func (this *MinLineService) RefreshToday() {
-	this.RefreshTodayMinLine()
+func (svc *MinLineService) RefreshToday() {
+	err := svc.RefreshTodayMinLine()
+	if err != nil {
+		return
+	}
 	today := stock.CurrentDate()
-	GetDayLineService().RefreshDayLine(today)
+	err = GetDayLineService().RefreshDayLine(today)
+	if err != nil {
+		return
+	}
 }

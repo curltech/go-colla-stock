@@ -8,7 +8,8 @@ import (
 	"github.com/curltech/go-colla-stock/stock/entity"
 )
 
-/**
+/*
+*
 同步表结构，服务继承基本服务的方法
 */
 type PinYinService struct {
@@ -62,7 +63,7 @@ func GetCachePinYin() map[string]*entity.PinYin {
 		if err != nil {
 			logger.Sugar.Errorf("Error: %s", err.Error())
 		}
-		ts_codes = make([]string, len(pinyins))
+		cacheTsCodes = make([]string, len(pinyins))
 		i := 0
 		for _, pinyin := range pinyins {
 			pinyinCache[pinyin.ChineseChar] = pinyin

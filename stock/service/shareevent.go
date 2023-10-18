@@ -11,9 +11,7 @@ import (
 	"github.com/curltech/go-colla-stock/stock/entity"
 )
 
-/**
-同步表结构，服务继承基本服务的方法
-*/
+// ShareEventService 同步表结构，服务继承基本服务的方法
 type ShareEventService struct {
 	service.OrmBaseService
 }
@@ -24,24 +22,24 @@ func GetShareEventService() *ShareEventService {
 	return shareEventService
 }
 
-func (this *ShareEventService) GetSeqName() string {
+func (svc *ShareEventService) GetSeqName() string {
 	return seqname
 }
 
-func (this *ShareEventService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.ShareEvent{}
+func (svc *ShareEventService) NewEntity(data []byte) (interface{}, error) {
+	shareEvent := &entity.ShareEvent{}
 	if data == nil {
-		return entity, nil
+		return shareEvent, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, shareEvent)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return shareEvent, err
 }
 
-func (this *ShareEventService) NewEntities(data []byte) (interface{}, error) {
+func (svc *ShareEventService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.ShareEvent, 0)
 	if data == nil {
 		return &entities, nil
@@ -54,10 +52,10 @@ func (this *ShareEventService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (this *ShareEventService) GetMine(userName string, ts_code string) ([]interface{}, error) {
+func (svc *ShareEventService) GetMine(userName string, tsCode string) ([]interface{}, error) {
 	tscode := "000001"
-	if ts_code != "" {
-		tscode = ts_code
+	if tsCode != "" {
+		tscode = tsCode
 	}
 	dayLines, err := GetDayLineService().findMaxTradeDate(tscode)
 	if err != nil {
@@ -74,12 +72,12 @@ func (this *ShareEventService) GetMine(userName string, ts_code string) ([]inter
 	paras := make([]interface{}, 0)
 	paras = append(paras, userName)
 	paras = append(paras, dayLines[0].TradeDate)
-	if ts_code != "" {
+	if tsCode != "" {
 		sql = sql + " and ss.tscode= ?"
-		paras = append(paras, ts_code)
+		paras = append(paras, tsCode)
 	}
 	sql = sql + " order by s.industry"
-	results, err := this.Query(sql, paras...)
+	results, err := svc.Query(sql, paras...)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +101,10 @@ func (this *ShareEventService) GetMine(userName string, ts_code string) ([]inter
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.ShareEvent))
+	err := service.GetSession().Sync(new(entity.ShareEvent))
+	if err != nil {
+		return
+	}
 	shareEventService.OrmBaseService.GetSeqName = shareEventService.GetSeqName
 	shareEventService.OrmBaseService.FactNewEntity = shareEventService.NewEntity
 	shareEventService.OrmBaseService.FactNewEntities = shareEventService.NewEntities

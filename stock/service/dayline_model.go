@@ -8,15 +8,11 @@ import (
 	"github.com/curltech/go-colla-core/util/thread"
 	"github.com/curltech/go-colla-stock/stock"
 	"github.com/curltech/go-colla-stock/stock/entity"
-	"io/ioutil"
 	"os"
 	"strings"
 )
 
-/*
-*
-获取某只股票最新的日期
-*/
+// FindModelData 获取某只股票最新的日期
 func (svc *DayLineService) FindModelData(ts_code string, industry string, startDate int64) ([]*entity.DayLine, error) {
 	var conds string
 	var paras []interface{}
@@ -41,14 +37,17 @@ func (svc *DayLineService) WriteAllFile(startDate int64) error {
 	v, _ := config.Get("stock.src")
 	src := v.(string)
 	src = src + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(stock.CurrentDate())
-	stock.Mkdir(src)
+	err := stock.Mkdir(src)
+	if err != nil {
+		return err
+	}
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncWriteFile, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, src)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		para = append(para, startDate)
 		routinePool.Invoke(para)
 	}
@@ -58,21 +57,27 @@ func (svc *DayLineService) WriteAllFile(startDate int64) error {
 
 func (svc *DayLineService) AsyncWriteFile(para interface{}) {
 	src := (para.([]interface{}))[0].(string)
-	ts_code := (para.([]interface{}))[1].(string)
+	tsCode := (para.([]interface{}))[1].(string)
 	startDate := (para.([]interface{}))[2].(int64)
-	svc.WriteFile(src, ts_code, startDate)
+	err := svc.WriteFile(src, tsCode, startDate)
+	if err != nil {
+		return
+	}
 }
 
-func (svc *DayLineService) WriteFile(src string, ts_code string, startDate int64) error {
+func (svc *DayLineService) WriteFile(src string, tsCode string, startDate int64) error {
 	if src == "" {
 		v, _ := config.Get("stock.src")
 		src = v.(string)
 		src = src + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(stock.CurrentDate())
-		stock.Mkdir(src)
+		err := stock.Mkdir(src)
+		if err != nil {
+			return err
+		}
 	}
-	daylines, err := svc.FindModelData(ts_code, "", startDate)
+	dayLines, err := svc.FindModelData(tsCode, "", startDate)
 	if err != nil {
-		logger.Sugar.Errorf("%v FindModelData failure!", ts_code)
+		logger.Sugar.Errorf("%v FindModelData failure!", tsCode)
 	}
 	raw := "id,ts_code,trade_date,open,high,low,turnover" +
 		",main_net_inflow,small_net_inflow,middle_net_inflow,large_net_inflow,super_net_inflow" +
@@ -101,64 +106,78 @@ func (svc *DayLineService) WriteFile(src string, ts_code string, startDate int64
 	heads := strings.Split(raw, ",")
 	jsonMap, _, _ := stock.GetJsonMap(&entity.DayLine{})
 	raw = raw + "\n"
-	filename := src + string(os.PathSeparator) + ts_code + ".csv"
-	err = ioutil.WriteFile(filename, []byte(raw), 0644)
+	filename := src + string(os.PathSeparator) + tsCode + ".csv"
+	err = os.WriteFile(filename, []byte(raw), 0644)
 	if err != nil {
-		logger.Sugar.Errorf("%v write file failure!", ts_code)
+		logger.Sugar.Errorf("%v write file failure!", tsCode)
 	}
 	var file *os.File
-	if len(daylines) > 0 {
+	if len(dayLines) > 0 {
 		file, err = os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
-			logger.Sugar.Errorf("%v open file failure!", ts_code)
+			logger.Sugar.Errorf("%v open file failure!", tsCode)
 		}
-		defer file.Close()
+		defer func(file *os.File) {
+			err = file.Close()
+			if err != nil {
+
+			}
+		}(file)
 	}
 	lineNum := 0
-	for _, dayline := range daylines {
+	for _, dayLine := range dayLines {
 		if lineNum <= 5 {
 			lineNum++
 			continue
 		}
 		i := 0
 		raw = ""
-		shareNumber := dayline.ShareNumber
-		close := dayline.Close
-		marketValue := shareNumber * close
-		amount := dayline.Amount
-		dayline.Open = (dayline.Open - close) / close
-		dayline.High = (dayline.High - close) / close
-		dayline.Low = (dayline.Low - close) / close
-		dayline.Vol = dayline.Vol / shareNumber
-		dayline.Amount = amount / marketValue
+		shareNumber := dayLine.ShareNumber
+		closePrice := dayLine.Close
+		marketValue := shareNumber * closePrice
+		amount := dayLine.Amount
+		dayLine.Open = (dayLine.Open - closePrice) / closePrice
+		dayLine.High = (dayLine.High - closePrice) / closePrice
+		dayLine.Low = (dayLine.Low - closePrice) / closePrice
+		dayLine.Vol = dayLine.Vol / shareNumber
+		dayLine.Amount = amount / marketValue
 		for _, colname := range heads {
 			fieldname := jsonMap[colname]
 			if colname == "turnover" {
-				v, _ := reflect.GetValue(dayline, fieldname)
+				v, _ := reflect.GetValue(dayLine, fieldname)
 				val := v.(float64)
 				nval := 0.0
 				if !stock.Equal(val, 0.0) {
 					nval = val / 100
 				}
-				reflect.SetValue(dayline, fieldname, nval)
+				err = reflect.SetValue(dayLine, fieldname, nval)
+				if err != nil {
+					return err
+				}
 			} else if strings.HasSuffix(colname, "_close") && !strings.HasSuffix(colname, "pct_chg_close") && colname != "chg_close" {
-				v, _ := reflect.GetValue(dayline, fieldname)
+				v, _ := reflect.GetValue(dayLine, fieldname)
 				val := v.(float64)
 				nval := 0.0
 				if !stock.Equal(val, 0.0) {
-					nval = (val - close) / close
+					nval = (val - closePrice) / closePrice
 				}
-				reflect.SetValue(dayline, fieldname, nval)
+				err = reflect.SetValue(dayLine, fieldname, nval)
+				if err != nil {
+					return err
+				}
 			} else if strings.HasSuffix(colname, "_net_inflow") && !strings.HasPrefix(colname, "pct_") {
-				v, _ := reflect.GetValue(dayline, fieldname)
+				v, _ := reflect.GetValue(dayLine, fieldname)
 				val := v.(float64)
 				nval := 0.0
 				if !stock.Equal(val, 0.0) {
 					nval = (val - amount) / amount
 				}
-				reflect.SetValue(dayline, fieldname, nval)
+				err = reflect.SetValue(dayLine, fieldname, nval)
+				if err != nil {
+					return err
+				}
 			}
-			v, _ := reflect.GetValue(dayline, fieldname)
+			v, _ := reflect.GetValue(dayLine, fieldname)
 			raw = raw + fmt.Sprint(v)
 			if i < len(heads)-1 {
 				raw = raw + ","
@@ -166,13 +185,13 @@ func (svc *DayLineService) WriteFile(src string, ts_code string, startDate int64
 			i++
 		}
 		lineNum++
-		if lineNum < len(daylines) {
+		if lineNum < len(dayLines) {
 			raw = raw + "\n"
 		}
 		if _, err = file.WriteString(raw); err != nil {
-			logger.Sugar.Errorf("%v append file failure!", ts_code)
+			logger.Sugar.Errorf("%v append file failure!", tsCode)
 		} else {
-			logger.Sugar.Infof("tscode:%v lineNum:%v", ts_code, lineNum)
+			logger.Sugar.Infof("tscode:%v lineNum:%v", tsCode, lineNum)
 		}
 	}
 

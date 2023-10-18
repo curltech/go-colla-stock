@@ -9,7 +9,7 @@ import (
 	"github.com/curltech/go-colla-core/util/reflect"
 	"github.com/curltech/go-colla-stock/stock"
 	"github.com/curltech/go-colla-stock/stock/entity"
-	svc "github.com/curltech/go-colla-stock/stock/tushare/service"
+	tushareSvc "github.com/curltech/go-colla-stock/stock/tushare/service"
 	"strings"
 )
 
@@ -20,9 +20,7 @@ type ShareRequest struct {
 	IsHs       string `json:"is_hs,omitempty"`       // N  是否沪深港通标的,N否 H沪股通 S深股通
 }
 
-/**
-同步表结构，服务继承基本服务的方法
-*/
+// ShareService 同步表结构，服务继承基本服务的方法
 type ShareService struct {
 	service.OrmBaseService
 }
@@ -35,24 +33,24 @@ func GetShareService() *ShareService {
 
 var seqname = "seq_stock"
 
-func (this *ShareService) GetSeqName() string {
+func (svc *ShareService) GetSeqName() string {
 	return seqname
 }
 
-func (this *ShareService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.Share{}
+func (svc *ShareService) NewEntity(data []byte) (interface{}, error) {
+	share := &entity.Share{}
 	if data == nil {
-		return entity, nil
+		return share, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, share)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return share, err
 }
 
-func (this *ShareService) NewEntities(data []byte) (interface{}, error) {
+func (svc *ShareService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.Share, 0)
 	if data == nil {
 		return &entities, nil
@@ -65,7 +63,7 @@ func (this *ShareService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (this *ShareService) save(shares []*entity.Share) error {
+func (svc *ShareService) save(shares []*entity.Share) error {
 	batch := 1000
 	dls := make([]interface{}, 0)
 	for i := 0; i < len(shares); i = i + batch {
@@ -75,7 +73,7 @@ func (this *ShareService) save(shares []*entity.Share) error {
 				dls = append(dls, share)
 			}
 		}
-		_, err := this.Insert(dls...)
+		_, err := svc.Insert(dls...)
 		if err != nil {
 			logger.Sugar.Errorf("Insert database error:%v", err.Error())
 			return err
@@ -124,10 +122,10 @@ type UserShare struct {
 	IndustryPercentPeg float64 `json:"industry_percent_peg"`
 }
 
-func (this *ShareService) GetShares(ts_code string) ([]interface{}, error) {
+func (svc *ShareService) GetShares(tsCode string) ([]interface{}, error) {
 	tscode := "000001"
-	if ts_code != "" {
-		tscode = ts_code
+	if tsCode != "" {
+		tscode = tsCode
 	}
 	dayLines, err := GetDayLineService().findMaxTradeDate(tscode)
 	if err != nil {
@@ -154,7 +152,7 @@ func (this *ShareService) GetShares(ts_code string) ([]interface{}, error) {
 	percentSql := "(select tscode as tscode,tradedate as tradedate" +
 		",percent_rank() over (partition by tscode order by pe asc) as percent_pe" +
 		",percent_rank() over (partition by tscode order by peg asc) as percent_peg"
-	in, paras := stock.InBuildStr("tscode", ts_code, ",")
+	in, paras := stock.InBuildStr("tscode", tsCode, ",")
 	percentSql = percentSql + " from stk_qperformance" +
 		" where " + in + ") pqp"
 	industryPercentSql := "(select distinct on(tscode) tscode as tscode,tradedate as tradedate" +
@@ -166,7 +164,7 @@ func (this *ShareService) GetShares(ts_code string) ([]interface{}, error) {
 	sql = sql + " join " + industryPercentSql + " on spqp.tscode=s.tscode"
 	sql = sql + " where sd.tradedate = qp.tradedate and pqp.tradedate = qp.tradedate and spqp.tradedate = qp.tradedate"
 	sql = sql + " order by s.tscode,sd.tradedate desc"
-	results, err := this.Query(sql, paras...)
+	results, err := svc.Query(sql, paras...)
 	if err != nil {
 		logger.Sugar.Errorf("Error:%v", err.Error())
 		return nil, err
@@ -195,14 +193,14 @@ func (this *ShareService) GetShares(ts_code string) ([]interface{}, error) {
 	return ps, nil
 }
 
-func (this *ShareService) Search(keyword string, from int, limit int) ([]*entity.Share, error) {
+func (svc *ShareService) Search(keyword string, from int, limit int) ([]*entity.Share, error) {
 	conds := "name like ? or tscode like ? or pinyin like ?"
 	paras := make([]interface{}, 0)
 	paras = append(paras, keyword+"%")
 	paras = append(paras, keyword+"%")
 	paras = append(paras, strings.ToLower(keyword)+"%")
 	shares := make([]*entity.Share, 0)
-	err := this.Find(&shares, nil, "industry,sector", from, limit, conds, paras...)
+	err := svc.Find(&shares, nil, "industry,sector", from, limit, conds, paras...)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +208,8 @@ func (this *ShareService) Search(keyword string, from int, limit int) ([]*entity
 	return shares, nil
 }
 
-func (this *ShareService) UpdatePinYin() {
-	_, shareMap := this.GetCacheShare()
+func (svc *ShareService) UpdatePinYin() {
+	_, shareMap := svc.GetCacheShare()
 	ps := make([]interface{}, 0)
 	for _, share := range shareMap {
 		if share.PinYin != "" {
@@ -223,15 +221,18 @@ func (this *ShareService) UpdatePinYin() {
 		ps = append(ps, share)
 	}
 
-	this.Upsert(ps...)
+	_, err := svc.Upsert(ps...)
+	if err != nil {
+		return
+	}
 }
 
 func getPinYin(name string) string {
 	pinyinMap := GetCachePinYin()
 	cs := []rune(name)
-	len := len(cs)
+	l := len(cs)
 	py := ""
-	for i := 0; i <= len-1; i++ {
+	for i := 0; i <= l-1; i++ {
 		c := string(cs[i : i+1])
 		pinyin, ok := pinyinMap[c]
 		if ok {
@@ -241,22 +242,22 @@ func getPinYin(name string) string {
 	return py
 }
 
-func (this *ShareService) UpdateShares() {
-	paras := svc.ShareRequest{}
-	shares, err := svc.StockBasic(paras)
+func (svc *ShareService) UpdateShares() {
+	paras := tushareSvc.ShareRequest{}
+	shares, err := tushareSvc.StockBasic(paras)
 	if err != nil {
 		logger.Sugar.Errorf("Error:%v", err.Error())
 	}
 	for _, share := range shares {
 		sh := &entity.Share{TsCode: share.Symbol}
-		ok, _ := this.Get(sh, false, "", "", nil)
+		ok, _ := svc.Get(sh, false, "", "", nil)
 		if !ok {
 			symbol := share.TsCode
 			share.TsCode = share.Symbol
 			share.Symbol = symbol
 			py := getPinYin(share.Name)
 			share.PinYin = py
-			_, err := this.Insert(share)
+			_, err := svc.Insert(share)
 			if err != nil {
 				logger.Sugar.Errorf("Error:%v", err.Error())
 			}
@@ -264,13 +265,13 @@ func (this *ShareService) UpdateShares() {
 	}
 }
 
-func (this *ShareService) UpdateSector(tscode string, sector string) {
-	tscodes := strings.Split(tscode, ",")
+func (svc *ShareService) UpdateSector(tsCode string, sector string) {
+	tsCodes := strings.Split(tsCode, ",")
 	sectors := strings.Split(sector, ",")
-	_, shareMap := this.GetCacheShare()
+	_, shareMap := svc.GetCacheShare()
 	ps := make([]interface{}, 0)
 
-	for k, t := range tscodes {
+	for k, t := range tsCodes {
 		share, ok := shareMap[t]
 		if !ok {
 			continue
@@ -286,39 +287,45 @@ func (this *ShareService) UpdateSector(tscode string, sector string) {
 		ps = append(ps, share)
 	}
 
-	this.Upsert(ps...)
+	_, err := svc.Upsert(ps...)
+	if err != nil {
+		return
+	}
 }
 
 var shareCache map[string]*entity.Share = nil
-var ts_codes []string = nil
+var cacheTsCodes []string = nil
 
-func (this *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
+func (svc *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
 	if shareCache == nil {
-		shareCache = make(map[string]*entity.Share, 0)
+		shareCache = make(map[string]*entity.Share)
 		shares := make([]*entity.Share, 0)
-		err := this.Find(&shares, nil, "tscode", 0, 0, "")
+		err := svc.Find(&shares, nil, "tscode", 0, 0, "")
 		if err != nil {
 			logger.Sugar.Errorf("Error: %s", err.Error())
 		}
-		ts_codes = make([]string, len(shares))
+		cacheTsCodes = make([]string, len(shares))
 		i := 0
 		for _, share := range shares {
 			shareCache[share.TsCode] = share
-			ts_codes[i] = share.TsCode
+			cacheTsCodes[i] = share.TsCode
 			i++
 		}
 	}
 
-	return ts_codes, shareCache
+	return cacheTsCodes, shareCache
 }
 
-func (this *ShareService) RefreshCacheShare() {
+func (svc *ShareService) RefreshCacheShare() {
 	shareCache = nil
-	ts_codes = nil
+	cacheTsCodes = nil
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.Share))
+	err := service.GetSession().Sync(new(entity.Share))
+	if err != nil {
+		return
+	}
 	shareService.OrmBaseService.GetSeqName = shareService.GetSeqName
 	shareService.OrmBaseService.FactNewEntity = shareService.NewEntity
 	shareService.OrmBaseService.FactNewEntities = shareService.NewEntities

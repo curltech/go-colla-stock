@@ -9,9 +9,7 @@ import (
 	"github.com/curltech/go-colla-stock/stock/entity"
 )
 
-/**
-同步表结构，服务继承基本服务的方法
-*/
+// WmqyLineService 同步表结构，服务继承基本服务的方法
 type WmqyLineService struct {
 	service.OrmBaseService
 }
@@ -22,24 +20,24 @@ func GetWmqyLineService() *WmqyLineService {
 	return wmqyLineService
 }
 
-func (this *WmqyLineService) GetSeqName() string {
+func (svc *WmqyLineService) GetSeqName() string {
 	return seqname
 }
 
-func (this *WmqyLineService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.WmqyLine{}
+func (svc *WmqyLineService) NewEntity(data []byte) (interface{}, error) {
+	wmqyLine := &entity.WmqyLine{}
 	if data == nil {
-		return entity, nil
+		return wmqyLine, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, wmqyLine)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return wmqyLine, err
 }
 
-func (this *WmqyLineService) NewEntities(data []byte) (interface{}, error) {
+func (svc *WmqyLineService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.WmqyLine, 0)
 	if data == nil {
 		return &entities, nil
@@ -56,12 +54,12 @@ var WmqylineHeader = []string{"ts_code", "security_name", "qdate", "share_number
 	"pct_chg_close", "weight_avg_roe", "gross_profit_margin", "parent_net_profit", "basic_eps",
 	"or_last_month", "np_last_month", "yoy_sales", "yoy_dedu_np", "cfps", "dividend_yield_ratio"}
 
-func (this *WmqyLineService) findMaxTradeDate(ts_code string, line_type int) (*entity.WmqyLine, *entity.WmqyLine, error) {
+func (svc *WmqyLineService) findMaxTradeDate(tsCode string, lineType int) (*entity.WmqyLine, *entity.WmqyLine, error) {
 	cond := &entity.WmqyLine{}
-	cond.TsCode = ts_code
-	cond.LineType = line_type
+	cond.TsCode = tsCode
+	cond.LineType = lineType
 	wmqyLines := make([]*entity.WmqyLine, 0)
-	err := this.Find(&wmqyLines, cond, "tradedate desc", 0, 2, "")
+	err := svc.Find(&wmqyLines, cond, "tradedate desc", 0, 2, "")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -74,11 +72,9 @@ func (this *WmqyLineService) findMaxTradeDate(ts_code string, line_type int) (*e
 	return nil, nil, nil
 }
 
-/**
-获取某时间点前limit条数据，如果没有日期范围的指定，就是返回最新的回溯limit条数据
-*/
-func (this *WmqyLineService) FindPreceding(ts_code string, lineType int, endDate string, from int, limit int, count int64) ([]*entity.WmqyLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindPreceding 获取某时间点前limit条数据，如果没有日期范围的指定，就是返回最新的回溯limit条数据
+func (svc *WmqyLineService) FindPreceding(tsCode string, lineType int, endDate string, from int, limit int, count int64) ([]*entity.WmqyLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	wmqyLines := make([]*entity.WmqyLine, 0)
 	conds += " and close is not null and close!=0"
 	if lineType != 0 {
@@ -92,12 +88,12 @@ func (this *WmqyLineService) FindPreceding(ts_code string, lineType int, endDate
 	var err error
 	condiBean := &entity.WmqyLine{}
 	if count == 0 {
-		count, err = this.Count(condiBean, conds, paras...)
+		count, err = svc.Count(condiBean, conds, paras...)
 		if err != nil {
 			return nil, count, err
 		}
 	}
-	err = this.Find(&wmqyLines, nil, "tscode,linetype,qdate desc", from, limit, conds, paras...)
+	err = svc.Find(&wmqyLines, nil, "tscode,linetype,qdate desc", from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err
 	}
@@ -114,11 +110,9 @@ func (this *WmqyLineService) FindPreceding(ts_code string, lineType int, endDate
 	return ps, count, nil
 }
 
-/*
-获取某时间点后limit条数据，如果没有日期范围的指定，就是返回最早limit条数据
-*/
-func (this *WmqyLineService) FindFollowing(ts_code string, lineType int, startDate string, endDate string, from int, limit int, count int64) ([]*entity.WmqyLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindFollowing 获取某时间点后limit条数据，如果没有日期范围的指定，就是返回最早limit条数据
+func (svc *WmqyLineService) FindFollowing(tsCode string, lineType int, startDate string, endDate string, from int, limit int, count int64) ([]*entity.WmqyLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	wmqyLines := make([]*entity.WmqyLine, 0)
 	conds += " and close is not null and close!=0"
 	if lineType != 0 {
@@ -136,12 +130,12 @@ func (this *WmqyLineService) FindFollowing(ts_code string, lineType int, startDa
 	var err error
 	condiBean := &entity.WmqyLine{}
 	if count == 0 {
-		count, err = this.Count(condiBean, conds, paras...)
+		count, err = svc.Count(condiBean, conds, paras...)
 		if err != nil {
 			return nil, count, err
 		}
 	}
-	err = this.Find(&wmqyLines, nil, "tscode,linetype,qdate", from, limit, conds, paras...)
+	err = svc.Find(&wmqyLines, nil, "tscode,linetype,qdate", from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err
 	}
@@ -152,7 +146,10 @@ func (this *WmqyLineService) FindFollowing(ts_code string, lineType int, startDa
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.WmqyLine))
+	err := service.GetSession().Sync(new(entity.WmqyLine))
+	if err != nil {
+		return
+	}
 	wmqyLineService.OrmBaseService.GetSeqName = wmqyLineService.GetSeqName
 	wmqyLineService.OrmBaseService.FactNewEntity = wmqyLineService.NewEntity
 	wmqyLineService.OrmBaseService.FactNewEntities = wmqyLineService.NewEntities

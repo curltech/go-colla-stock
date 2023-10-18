@@ -15,10 +15,11 @@ import (
 	"sync"
 )
 
-/**
+/*
+*
 获取某只股票的日线数据
 */
-func (this *WmqyLineService) GetWmqyLine(secId string, beg int64, end int, limit int, klt int, previous *entity.WmqyLine) ([]*entity.WmqyLine, error) {
+func (svc *WmqyLineService) GetWmqyLine(secId string, beg int64, end int, limit int, klt int, previous *entity.WmqyLine) ([]*entity.WmqyLine, error) {
 	klines, err := GetDayLineService().GetKLine(secId, int(beg), end, limit, klt)
 	if err != nil {
 		return nil, err
@@ -75,7 +76,7 @@ func (this *WmqyLineService) GetWmqyLine(secId string, beg int64, end int, limit
 	return wmqyLines, err
 }
 
-func (this *WmqyLineService) findByTradeDate(ts_code string, line_type int, startDate int64, endDate int64) ([]*entity.WmqyLine, error) {
+func (svc *WmqyLineService) findByTradeDate(ts_code string, line_type int, startDate int64, endDate int64) ([]*entity.WmqyLine, error) {
 	cond := &entity.WmqyLine{}
 	cond.TsCode = ts_code
 	cond.LineType = line_type
@@ -87,7 +88,7 @@ func (this *WmqyLineService) findByTradeDate(ts_code string, line_type int, star
 		conds += " and tradedate <= ?"
 		paras = append(paras, endDate)
 	}
-	err := this.Find(&wmqyLines, cond, "tradedate", 0, 0, conds, paras...)
+	err := svc.Find(&wmqyLines, cond, "tradedate", 0, 0, conds, paras...)
 
 	return wmqyLines, err
 }
@@ -149,12 +150,13 @@ type WmqyLineBuf struct {
 	Lock sync.Mutex
 }
 
-/**
+/*
+*
 刷新所有股票的日线数据，beg为负数的时候从已有的最新数据开始更新
 */
-func (this *WmqyLineService) RefreshWmqyLine(beg int64) error {
+func (svc *WmqyLineService) RefreshWmqyLine(beg int64) error {
 	processLog := GetProcessLogService().StartLog("wmqyLine", "RefreshWmqyLine", "")
-	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, this.AsyncUpdateWmqyLine, nil)
+	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateWmqyLine, nil)
 	defer routinePool.Release()
 	ts_codes, _ := GetShareService().GetCacheShare()
 	wmqy := &WmqyLineBuf{Buf: make([]interface{}, 0), Lock: sync.Mutex{}}
@@ -170,7 +172,7 @@ func (this *WmqyLineService) RefreshWmqyLine(beg int64) error {
 	wmqy.Lock.Lock()
 	defer wmqy.Lock.Unlock()
 	if len(wmqy.Buf) > 0 {
-		_, err := this.Upsert(wmqy.Buf...)
+		_, err := svc.Upsert(wmqy.Buf...)
 		if err != nil {
 			logger.Sugar.Errorf("Error: %s", err.Error())
 		}
@@ -180,17 +182,17 @@ func (this *WmqyLineService) RefreshWmqyLine(beg int64) error {
 	return nil
 }
 
-func (this *WmqyLineService) AsyncUpdateWmqyLine(para interface{}) {
+func (svc *WmqyLineService) AsyncUpdateWmqyLine(para interface{}) {
 	secId := (para.([]interface{}))[0].(string)
 	beg := (para.([]interface{}))[1].(int64)
 	limit := (para.([]interface{}))[2].(int)
 	wmqy := (para.([]interface{}))[3].(*WmqyLineBuf)
-	this.GetUpdateWmqyLine(secId, beg, limit, wmqy)
+	svc.GetUpdateWmqyLine(secId, beg, limit, wmqy)
 }
 
-func (this *WmqyLineService) GetUpdateWmqyLine(secId string, beg int64, limit int, wmqy *WmqyLineBuf) ([]interface{}, error) {
+func (svc *WmqyLineService) GetUpdateWmqyLine(secId string, beg int64, limit int, wmqy *WmqyLineBuf) ([]interface{}, error) {
 	//processLog := GetProcessLogService().StartLog("wmqyLine", "GetUpdateWmqyLine", secId)
-	ps, err := this.UpdateWmqyLine(secId, beg, limit, wmqy)
+	ps, err := svc.UpdateWmqyLine(secId, beg, limit, wmqy)
 	if err != nil {
 		//GetProcessLogService().EndLog(processLog, "", err.Error())
 		return ps, err
@@ -198,10 +200,10 @@ func (this *WmqyLineService) GetUpdateWmqyLine(secId string, beg int64, limit in
 	return ps, err
 }
 
-func (this *WmqyLineService) UpdateWmqyLine(secId string, beg int64, limit int, wmqy *WmqyLineBuf) ([]interface{}, error) {
+func (svc *WmqyLineService) UpdateWmqyLine(secId string, beg int64, limit int, wmqy *WmqyLineBuf) ([]interface{}, error) {
 	ps := make([]interface{}, 0)
 	for klt := 102; klt <= 106; klt++ {
-		wmqyLines, err := this.getWmqyLine(secId, klt, beg, limit)
+		wmqyLines, err := svc.getWmqyLine(secId, klt, beg, limit)
 		if err != nil {
 			logger.Sugar.Errorf("Error:%v", err.Error())
 			return ps, err
@@ -216,10 +218,10 @@ func (this *WmqyLineService) UpdateWmqyLine(secId string, beg int64, limit int, 
 			}
 			ps = append(ps, wmqyLine)
 		}
-		this.batchUpdate(wmqy, wmqyLines)
+		svc.batchUpdate(wmqy, wmqyLines)
 	}
 	if wmqy == nil {
-		_, err := this.Upsert(ps...)
+		_, err := svc.Upsert(ps...)
 		if err != nil {
 			logger.Sugar.Errorf("Error: %s", err.Error())
 		}
@@ -228,7 +230,7 @@ func (this *WmqyLineService) UpdateWmqyLine(secId string, beg int64, limit int, 
 	return ps, nil
 }
 
-func (this *WmqyLineService) batchUpdate(wmqy *WmqyLineBuf, wmqyLines []*entity.WmqyLine) {
+func (svc *WmqyLineService) batchUpdate(wmqy *WmqyLineBuf, wmqyLines []*entity.WmqyLine) {
 	if wmqy != nil {
 		wmqy.Lock.Lock()
 		defer wmqy.Lock.Unlock()
@@ -236,7 +238,7 @@ func (this *WmqyLineService) batchUpdate(wmqy *WmqyLineBuf, wmqyLines []*entity.
 			wmqy.Buf = append(wmqy.Buf, wmqyLine)
 		}
 		if len(wmqy.Buf) > 1000 {
-			_, err := this.Upsert(wmqy.Buf...)
+			_, err := svc.Upsert(wmqy.Buf...)
 			if err != nil {
 				logger.Sugar.Errorf("Error: %s", err.Error())
 				return
@@ -247,7 +249,7 @@ func (this *WmqyLineService) batchUpdate(wmqy *WmqyLineBuf, wmqyLines []*entity.
 	}
 }
 
-func (this *WmqyLineService) getWmqyLine(secId string, klt int, beg int64, limit int) ([]*entity.WmqyLine, error) {
+func (svc *WmqyLineService) getWmqyLine(secId string, klt int, beg int64, limit int) ([]*entity.WmqyLine, error) {
 	currentDate := stock.CurrentDate()
 	today := currentDate
 	var todayReportDate string
@@ -270,10 +272,10 @@ func (this *WmqyLineService) getWmqyLine(secId string, klt int, beg int64, limit
 		todayReportDate = stock.GetWTradeDate(today)
 	}
 	var end = 0
-	previous, previous1, err := this.findMaxTradeDate(secId, klt)
+	previous, previous1, err := svc.findMaxTradeDate(secId, klt)
 	if previous != nil {
 		if todayReportDate == previous.QDate {
-			this.Delete(previous, "")
+			svc.Delete(previous, "")
 			previous = previous1
 		}
 	}
@@ -291,12 +293,12 @@ func (this *WmqyLineService) getWmqyLine(secId string, klt int, beg int64, limit
 		logger.Sugar.Errorf("Error:%v", errors.New("data is updated"))
 		return nil, errors.New("")
 	}
-	wmqyLines, err := this.GetWmqyLine(secId, beg, end, limit, klt, previous)
+	wmqyLines, err := svc.GetWmqyLine(secId, beg, end, limit, klt, previous)
 
 	return wmqyLines, err
 }
 
-func (this *WmqyLineService) findAggregation(startDate int64, endDate int64) (map[stock.AggregationType]map[string]*entity.WmqyLine, error) {
+func (svc *WmqyLineService) findAggregation(startDate int64, endDate int64) (map[stock.AggregationType]map[string]*entity.WmqyLine, error) {
 	sql := "select tscode TsCode,linetype LineType"
 	jsonMap, _, _ := stock.GetJsonMap(entity.WmqyLine{})
 	for _, colname := range DaylineHeader[2:] {
@@ -319,7 +321,7 @@ func (this *WmqyLineService) findAggregation(startDate int64, endDate int64) (ma
 	}
 	sql = sql + conds
 	sql = sql + " group by tscode,linetype"
-	results, err := this.Query(sql, paras...)
+	results, err := svc.Query(sql, paras...)
 	if err != nil {
 		return nil, err
 	}
@@ -361,11 +363,12 @@ func (this *WmqyLineService) findAggregation(startDate int64, endDate int64) (ma
 	return aggreWmqylines, nil
 }
 
-/**
+/*
+*
 minmax: "C:\stock\data\minmax\lday"
 standard: "C:\stock\data\standard\lday"
 */
-func (this *WmqyLineService) StdPath(minmax string, standard string, startDate int64, endDate int64) error {
+func (svc *WmqyLineService) StdPath(minmax string, standard string, startDate int64, endDate int64) error {
 	stock.Mkdir(minmax + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate))
 	stock.Mkdir(standard + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate))
 	aggreStrs := make(map[stock.AggregationType][]string)
@@ -373,7 +376,7 @@ func (this *WmqyLineService) StdPath(minmax string, standard string, startDate i
 		aggreStrs[typ] = make([]string, 0)
 	}
 
-	routinePool := thread.CreateRoutinePool(10, this.AsyncStdFile, nil)
+	routinePool := thread.CreateRoutinePool(10, svc.AsyncStdFile, nil)
 	defer routinePool.Release()
 	ts_codes, _ := GetShareService().GetCacheShare()
 	for _, ts_code := range ts_codes {
@@ -418,14 +421,14 @@ func (this *WmqyLineService) StdPath(minmax string, standard string, startDate i
 	return nil
 }
 
-func (this *WmqyLineService) AsyncStdFile(para interface{}) {
+func (svc *WmqyLineService) AsyncStdFile(para interface{}) {
 	minmax := (para.([]interface{}))[0].(string)
 	standard := (para.([]interface{}))[1].(string)
 	startDate := (para.([]interface{}))[2].(int64)
 	endDate := (para.([]interface{}))[3].(int64)
 	filename := (para.([]interface{}))[4].(string)
 	aggreStrs := (para.([]interface{}))[5].(map[stock.AggregationType][]string)
-	aggres, err := this.StdFile(minmax, standard, startDate, endDate, filename)
+	aggres, err := svc.StdFile(minmax, standard, startDate, endDate, filename)
 	if err != nil {
 		return
 	}
@@ -447,7 +450,7 @@ func (this *WmqyLineService) AsyncStdFile(para interface{}) {
 	}
 }
 
-func (this *WmqyLineService) StdFile(minmax string, standard string, _startDate int64, _endDate int64, filename string) (map[stock.AggregationType]*entity.QPerformance, error) {
+func (svc *WmqyLineService) StdFile(minmax string, standard string, _startDate int64, _endDate int64, filename string) (map[stock.AggregationType]*entity.QPerformance, error) {
 	var err error
 	ts_code := strings.TrimSuffix(filename, ".csv")
 	startDate := stock.GetQTradeDate(_startDate)

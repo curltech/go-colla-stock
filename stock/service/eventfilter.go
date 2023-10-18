@@ -8,9 +8,7 @@ import (
 	"github.com/curltech/go-colla-stock/stock/entity"
 )
 
-/**
-同步表结构，服务继承基本服务的方法
-*/
+// EventFilterService 同步表结构，服务继承基本服务的方法
 type EventFilterService struct {
 	service.OrmBaseService
 }
@@ -21,24 +19,24 @@ func GetEventFilterService() *EventFilterService {
 	return eventFilterService
 }
 
-func (this *EventFilterService) GetSeqName() string {
+func (svc *EventFilterService) GetSeqName() string {
 	return seqname
 }
 
-func (this *EventFilterService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.EventFilter{}
+func (svc *EventFilterService) NewEntity(data []byte) (interface{}, error) {
+	eventFilter := &entity.EventFilter{}
 	if data == nil {
-		return entity, nil
+		return eventFilter, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, eventFilter)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return eventFilter, err
 }
 
-func (this *EventFilterService) NewEntities(data []byte) (interface{}, error) {
+func (svc *EventFilterService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.EventFilter, 0)
 	if data == nil {
 		return &entities, nil
@@ -53,9 +51,9 @@ func (this *EventFilterService) NewEntities(data []byte) (interface{}, error) {
 
 var eventFilterCache map[string][]*entity.EventFilter = nil
 
-func (this *EventFilterService) GetCacheEventFilter() map[string][]*entity.EventFilter {
+func (svc *EventFilterService) GetCacheEventFilter() map[string][]*entity.EventFilter {
 	if eventFilterCache == nil {
-		eventFilterCache = make(map[string][]*entity.EventFilter, 0)
+		eventFilterCache = make(map[string][]*entity.EventFilter)
 		eventFilters := make([]*entity.EventFilter, 0)
 		svc := GetEventFilterService()
 		err := svc.Find(&eventFilters, nil, "", 0, 0, "")
@@ -77,12 +75,15 @@ func (this *EventFilterService) GetCacheEventFilter() map[string][]*entity.Event
 	return eventFilterCache
 }
 
-func (this *EventFilterService) RefreshCacheEventFilter() {
+func (svc *EventFilterService) RefreshCacheEventFilter() {
 	eventFilterCache = nil
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.EventFilter))
+	err := service.GetSession().Sync(new(entity.EventFilter))
+	if err != nil {
+		return
+	}
 	eventFilterService.OrmBaseService.GetSeqName = eventFilterService.GetSeqName
 	eventFilterService.OrmBaseService.FactNewEntity = eventFilterService.NewEntity
 	eventFilterService.OrmBaseService.FactNewEntities = eventFilterService.NewEntities

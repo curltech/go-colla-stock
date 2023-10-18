@@ -9,15 +9,12 @@ import (
 	"github.com/curltech/go-colla-core/util/thread"
 	"github.com/curltech/go-colla-stock/stock"
 	"github.com/curltech/go-colla-stock/stock/entity"
-	"io/ioutil"
 	"math"
 	"os"
 	"strings"
 )
 
-/**
-同步表结构，服务继承基本服务的方法
-*/
+// MinLineService 同步表结构，服务继承基本服务的方法
 type MinLineService struct {
 	service.OrmBaseService
 }
@@ -28,24 +25,24 @@ func GetMinLineService() *MinLineService {
 	return minLineService
 }
 
-func (this *MinLineService) GetSeqName() string {
+func (svc *MinLineService) GetSeqName() string {
 	return seqname
 }
 
-func (this *MinLineService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.MinLine{}
+func (svc *MinLineService) NewEntity(data []byte) (interface{}, error) {
+	minLine := &entity.MinLine{}
 	if data == nil {
-		return entity, nil
+		return minLine, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, minLine)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return minLine, err
 }
 
-func (this *MinLineService) NewEntities(data []byte) (interface{}, error) {
+func (svc *MinLineService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.MinLine, 0)
 	if data == nil {
 		return &entities, nil
@@ -58,22 +55,26 @@ func (this *MinLineService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (this *MinLineService) AsyncParseFile(para interface{}) {
+func (svc *MinLineService) AsyncParseFile(para interface{}) {
 	src := (para.([]string))[0]
 	target := (para.([]string))[1]
 	filename := (para.([]string))[2]
-	this.ParseFile(src, target, filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY)
+	err := svc.ParseFile(src, target, filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY)
+	if err != nil {
+		return
+	}
 }
 
-/**
+/*
+*
 读目录下的数据
 */
-func (this *MinLineService) ParsePath(src string, target string) error {
-	files, err := ioutil.ReadDir(src)
+func (svc *MinLineService) ParsePath(src string, target string) error {
+	files, err := os.ReadDir(src)
 	if err != nil {
 		return err
 	}
-	routinePool := thread.CreateRoutinePool(10, this.AsyncParseFile, nil)
+	routinePool := thread.CreateRoutinePool(10, svc.AsyncParseFile, nil)
 	defer routinePool.Release()
 	for _, file := range files {
 		filename := file.Name()
@@ -89,34 +90,48 @@ func (this *MinLineService) ParsePath(src string, target string) error {
 		}
 	}
 	routinePool.Wait(nil)
-	stock.Rename(src, src+"-"+fmt.Sprint(stock.CurrentDate()))
-	stock.Mkdir(src)
+	err = stock.Rename(src, src+"-"+fmt.Sprint(stock.CurrentDate()))
+	if err != nil {
+		return err
+	}
+	err = stock.Mkdir(src)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (this *MinLineService) ParseFile(src string, target string, filename string, flag int) error {
+func (svc *MinLineService) ParseFile(src string, target string, filename string, flag int) error {
 	shareId := strings.TrimSuffix(filename, ".lc5")
 	logger.Sugar.Infof("shareId:%v", shareId)
-	content, err := ioutil.ReadFile(src + string(os.PathSeparator) + filename)
+	content, err := os.ReadFile(src + string(os.PathSeparator) + filename)
 	if err != nil {
 		return err
 	}
 	targetFileName := target + string(os.PathSeparator) + shareId + ".csv"
-	dayLines := this.ParseByte(shareId, content)
-	raw := this.ToCsv(dayLines)
+	dayLines := svc.ParseByte(shareId, content)
+	raw := svc.ToCsv(dayLines)
 	file, err := os.OpenFile(targetFileName, flag, 0644)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	file.Write([]byte(raw))
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+
+		}
+	}(file)
+	_, err = file.Write([]byte(raw))
+	if err != nil {
+		return err
+	}
 	logger.Sugar.Infof("Parse day file %v record %v completely!", targetFileName, len(dayLines))
-	//this.save(dayLines)
+	//svc.save(dayLines)
 
 	return nil
 }
 
-func (this *MinLineService) ToCsv(minLines []*entity.MinLine) string {
+func (svc *MinLineService) ToCsv(minLines []*entity.MinLine) string {
 	raw := "id,trade_date,trade_minute,open,high,low,close,amount,vol\n"
 	i := 0
 	for _, minLine := range minLines {
@@ -135,7 +150,7 @@ func (this *MinLineService) ToCsv(minLines []*entity.MinLine) string {
 	return raw
 }
 
-func (this *MinLineService) save(minLines []*entity.MinLine) error {
+func (svc *MinLineService) save(minLines []*entity.MinLine) error {
 	batch := 1000
 	mls := make([]interface{}, 0)
 	for i := 0; i < len(minLines); i = i + batch {
@@ -145,7 +160,7 @@ func (this *MinLineService) save(minLines []*entity.MinLine) error {
 				mls = append(mls, minLine)
 			}
 		}
-		_, err := this.Insert(mls...)
+		_, err := svc.Insert(mls...)
 		if err != nil {
 			logger.Sugar.Errorf("Insert database error:%v", err.Error())
 			return err
@@ -158,7 +173,7 @@ func (this *MinLineService) save(minLines []*entity.MinLine) error {
 	return nil
 }
 
-func (this *MinLineService) ParseByte(shareId string, content []byte) []*entity.MinLine {
+func (svc *MinLineService) ParseByte(shareId string, content []byte) []*entity.MinLine {
 	minLines := make([]*entity.MinLine, 0)
 	for i := 0; i < len(content); i = i + 32 {
 		minLine := entity.MinLine{}
@@ -181,11 +196,9 @@ func (this *MinLineService) ParseByte(shareId string, content []byte) []*entity.
 	return minLines
 }
 
-/**
-除非当天的分钟数据全部获取，每次访问都要重新获取网络的分钟数据
-*/
-func (this *MinLineService) FindMinLines(tscode string, tradeDate int64, tradeMinute int64) ([]*entity.MinLine, error) {
-	minLines, err := this.findMinLines(tscode, tradeDate, tradeMinute)
+// FindMinLines 除非当天的分钟数据全部获取，每次访问都要重新获取网络的分钟数据
+func (svc *MinLineService) FindMinLines(tscode string, tradeDate int64, tradeMinute int64) ([]*entity.MinLine, error) {
+	minLines, err := svc.findMinLines(tscode, tradeDate, tradeMinute)
 	if err != nil {
 		return minLines, err
 	}
@@ -199,31 +212,37 @@ func (this *MinLineService) FindMinLines(tscode string, tradeDate int64, tradeMi
 			return minLines, err
 		}
 	}
-	ps, err := this.GetUpdateTodayMinLine(tscode)
+	ps, err := svc.GetUpdateTodayMinLine(tscode)
 	if err == nil && len(ps) > 0 {
 		today := stock.CurrentDate()
-		daylines, err := GetDayLineService().GetUpdateDayline(tscode, today, 10000)
-		if err == nil && len(daylines) > 0 {
-			dayline := daylines[0]
+		dayLines, err := GetDayLineService().GetUpdateDayline(tscode, today, 10000)
+		if err == nil && len(dayLines) > 0 {
+			dayLine := dayLines[0]
 			p := ps[len(ps)-1]
-			dayline.MainNetInflow = p.MainNetInflow
-			dayline.SuperNetInflow = p.SuperNetInflow
-			dayline.SmallNetInflow = p.SmallNetInflow
-			dayline.MiddleNetInflow = p.MiddleNetInflow
-			dayline.LargeNetInflow = p.LargeNetInflow
-			GetDayLineService().Upsert(dayline)
+			dayLine.MainNetInflow = p.MainNetInflow
+			dayLine.SuperNetInflow = p.SuperNetInflow
+			dayLine.SmallNetInflow = p.SmallNetInflow
+			dayLine.MiddleNetInflow = p.MiddleNetInflow
+			dayLine.LargeNetInflow = p.LargeNetInflow
+			_, err = GetDayLineService().Upsert(dayLine)
+			if err != nil {
+				return nil, err
+			}
 		}
-		GetQPerformanceService().GetUpdateDayQPerformance(tscode)
-		minLines, err = this.findMinLines(tscode, tradeDate, tradeMinute)
+		_, err = GetQPerformanceService().GetUpdateDayQPerformance(tscode)
+		if err != nil {
+			return nil, err
+		}
+		minLines, err = svc.findMinLines(tscode, tradeDate, tradeMinute)
 	}
 
 	return minLines, err
 }
 
-func (this *MinLineService) findMinLines(tscode string, tradeDate int64, tradeMinute int64) ([]*entity.MinLine, error) {
+func (svc *MinLineService) findMinLines(tsCode string, tradeDate int64, tradeMinute int64) ([]*entity.MinLine, error) {
 	minLines := make([]*entity.MinLine, 0)
 	condiBean := &entity.MinLine{}
-	condiBean.TsCode = tscode
+	condiBean.TsCode = tsCode
 	if tradeDate == 0 {
 		tradeDate = stock.CurrentDate()
 	}
@@ -235,7 +254,7 @@ func (this *MinLineService) findMinLines(tscode string, tradeDate int64, tradeMi
 		paras = make([]interface{}, 0)
 		paras = append(paras, tradeMinute)
 	}
-	err := this.Find(&minLines, condiBean, "trademinute", 0, 0, conds, paras)
+	err := svc.Find(&minLines, condiBean, "trademinute", 0, 0, conds, paras)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +263,10 @@ func (this *MinLineService) findMinLines(tscode string, tradeDate int64, tradeMi
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.MinLine))
+	err := service.GetSession().Sync(new(entity.MinLine))
+	if err != nil {
+		return
+	}
 	minLineService.OrmBaseService.GetSeqName = minLineService.GetSeqName
 	minLineService.OrmBaseService.FactNewEntity = minLineService.NewEntity
 	minLineService.OrmBaseService.FactNewEntities = minLineService.NewEntities

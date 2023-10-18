@@ -13,9 +13,7 @@ import (
 	"strings"
 )
 
-/**
-同步表结构，服务继承基本服务的方法
-*/
+// EventCondService 同步表结构，服务继承基本服务的方法
 type EventCondService struct {
 	service.OrmBaseService
 }
@@ -26,24 +24,24 @@ func GetEventCondService() *EventCondService {
 	return eventCondService
 }
 
-func (this *EventCondService) GetSeqName() string {
+func (svc *EventCondService) GetSeqName() string {
 	return seqname
 }
 
-func (this *EventCondService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.EventCond{}
+func (svc *EventCondService) NewEntity(data []byte) (interface{}, error) {
+	eventCond := &entity.EventCond{}
 	if data == nil {
-		return entity, nil
+		return eventCond, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, eventCond)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return eventCond, err
 }
 
-func (this *EventCondService) NewEntities(data []byte) (interface{}, error) {
+func (svc *EventCondService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.EventCond, 0)
 	if data == nil {
 		return &entities, nil
@@ -56,10 +54,10 @@ func (this *EventCondService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (this *EventCondService) findMaxTradeDate(tscode string) (int64, error) {
+func (svc *EventCondService) findMaxTradeDate(tscode string) (int64, error) {
 	conds, paras := stock.InBuildStr("tscode", tscode, ",")
 	ps := make([]*entity.EventCond, 0)
-	err := this.Find(&ps, nil, "tradedate desc", 0, 1, conds, paras...)
+	err := svc.Find(&ps, nil, "tradedate desc", 0, 1, conds, paras...)
 	if err != nil {
 		return 0, err
 	}
@@ -70,7 +68,7 @@ func (this *EventCondService) findMaxTradeDate(tscode string) (int64, error) {
 	return 0, nil
 }
 
-func (this *EventCondService) FindGroupby(tscode string, startDate int64, endDate int64, eventCode string, eventType string, orderby string, from int, limit int, count int64) ([]*entity.EventCond, int64, error) {
+func (svc *EventCondService) FindGroupby(tscode string, startDate int64, endDate int64, eventCode string, eventType string, orderby string, from int, limit int, count int64) ([]*entity.EventCond, int64, error) {
 	conds, paras := stock.InBuildStr("tscode", tscode, ",")
 	if startDate != 0 {
 		conds = conds + " and tradedate>=?"
@@ -97,7 +95,7 @@ func (this *EventCondService) FindGroupby(tscode string, startDate int64, endDat
 	conds = conds + " order by " + orderby
 	if count == 0 {
 		sql := "select count(*) as count from (" + conds + ") t"
-		results, err := this.Query(sql, paras...)
+		results, err := svc.Query(sql, paras...)
 		if err != nil {
 			return nil, count, err
 		}
@@ -113,7 +111,7 @@ func (this *EventCondService) FindGroupby(tscode string, startDate int64, endDat
 	if limit > 0 {
 		sql = sql + " limit " + fmt.Sprint(limit)
 	}
-	results, err := this.Query(sql, paras...)
+	results, err := svc.Query(sql, paras...)
 	if err != nil {
 		return nil, count, err
 	}
@@ -130,7 +128,10 @@ func (this *EventCondService) FindGroupby(tscode string, startDate int64, endDat
 			} else {
 				fieldname, ok := jsonMap[k]
 				if ok {
-					reflect.Set(p, fieldname, strVal)
+					err = reflect.Set(p, fieldname, strVal)
+					if err != nil {
+						return nil, 0, err
+					}
 				}
 			}
 		}
@@ -146,14 +147,14 @@ func (this *EventCondService) FindGroupby(tscode string, startDate int64, endDat
 	return ps, count, nil
 }
 
-func (this *EventCondService) RefreshEventCond() error {
+func (svc *EventCondService) RefreshEventCond() error {
 	processLog := GetProcessLogService().StartLog("EventCond", "RefreshEventCond", "")
-	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, this.AsyncUpdateEventCond, nil)
+	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateEventCond, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		routinePool.Invoke(para)
 	}
 	routinePool.Wait(nil)
@@ -162,19 +163,19 @@ func (this *EventCondService) RefreshEventCond() error {
 	return nil
 }
 
-func (this *EventCondService) AsyncUpdateEventCond(para interface{}) {
+func (svc *EventCondService) AsyncUpdateEventCond(para interface{}) {
 	tscode := (para.([]interface{}))[0].(string)
 
-	this.GetUpdateEventCond(tscode)
+	svc.GetUpdateEventCond(tscode)
 }
 
-func (this *EventCondService) GetUpdateEventCond(tscode string) []interface{} {
+func (svc *EventCondService) GetUpdateEventCond(tscode string) []interface{} {
 	eventMap := GetEventService().GetCacheEvent()
-	startDate, _ := this.findMaxTradeDate(tscode)
+	startDate, _ := svc.findMaxTradeDate(tscode)
 	ps := make([]interface{}, 0)
 	for _, event := range eventMap {
 		if event.EventType == "in" || event.EventType == "out" {
-			inOutPoint, err := GetDayLineService().FindInOutEvent(tscode, 0, event.EventCode, nil, startDate, 0, 0, 0, 0, 0, 0)
+			inOutPoint, err := GetDayLineService().FindInOutEvent(tscode, 0, event.EventCode, nil, startDate, 0, 0, 0, 0)
 			if err != nil {
 				continue
 			}
@@ -206,12 +207,15 @@ func (this *EventCondService) GetUpdateEventCond(tscode string) []interface{} {
 			}
 		}
 	}
-	this.Insert(ps...)
+	_, err := svc.Insert(ps...)
+	if err != nil {
+		return nil
+	}
 
 	return ps
 }
 
-func (this *EventCondService) Search(tscode string, startDate int64, endDate int64, eventCode string, eventType string, orderby string, from int, limit int, count int64) ([]*entity.EventCond, int64, error) {
+func (svc *EventCondService) Search(tscode string, startDate int64, endDate int64, eventCode string, eventType string, orderby string, from int, limit int, count int64) ([]*entity.EventCond, int64, error) {
 	conds, paras := stock.InBuildStr("tscode", tscode, ",")
 	if startDate != 0 {
 		conds = conds + " and tradedate>=?"
@@ -232,7 +236,7 @@ func (this *EventCondService) Search(tscode string, startDate int64, endDate int
 	var err error
 	condiBean := &entity.EventCond{}
 	if count == 0 {
-		count, err = this.Count(condiBean, conds, paras...)
+		count, err = svc.Count(condiBean, conds, paras...)
 		if err != nil {
 			return nil, count, err
 		}
@@ -241,7 +245,7 @@ func (this *EventCondService) Search(tscode string, startDate int64, endDate int
 		orderby = "tscode,tradedate desc"
 	}
 	ps := make([]*entity.EventCond, 0)
-	err = this.Find(&ps, nil, orderby, from, limit, conds, paras...)
+	err = svc.Find(&ps, nil, orderby, from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err
 	}
@@ -249,7 +253,10 @@ func (this *EventCondService) Search(tscode string, startDate int64, endDate int
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.EventCond))
+	err := service.GetSession().Sync(new(entity.EventCond))
+	if err != nil {
+		return
+	}
 	eventCondService.OrmBaseService.GetSeqName = eventCondService.GetSeqName
 	eventCondService.OrmBaseService.FactNewEntity = eventCondService.NewEntity
 	eventCondService.OrmBaseService.FactNewEntities = eventCondService.NewEntities

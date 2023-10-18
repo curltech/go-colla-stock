@@ -8,9 +8,7 @@ import (
 	"github.com/curltech/go-colla-stock/stock/entity"
 )
 
-/**
-同步表结构，服务继承基本服务的方法
-*/
+// EventService 同步表结构，服务继承基本服务的方法
 type EventService struct {
 	service.OrmBaseService
 }
@@ -21,24 +19,24 @@ func GetEventService() *EventService {
 	return eventService
 }
 
-func (this *EventService) GetSeqName() string {
+func (svc *EventService) GetSeqName() string {
 	return seqname
 }
 
-func (this *EventService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.Event{}
+func (svc *EventService) NewEntity(data []byte) (interface{}, error) {
+	event := &entity.Event{}
 	if data == nil {
-		return entity, nil
+		return event, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, event)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return event, err
 }
 
-func (this *EventService) NewEntities(data []byte) (interface{}, error) {
+func (svc *EventService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.Event, 0)
 	if data == nil {
 		return &entities, nil
@@ -53,7 +51,7 @@ func (this *EventService) NewEntities(data []byte) (interface{}, error) {
 
 var eventCache map[string]*entity.Event = nil
 
-func (this *EventService) GetCacheEvent() map[string]*entity.Event {
+func (svc *EventService) GetCacheEvent() map[string]*entity.Event {
 	if eventCache == nil {
 		eventCache = make(map[string]*entity.Event, 0)
 		events := make([]*entity.Event, 0)
@@ -72,12 +70,15 @@ func (this *EventService) GetCacheEvent() map[string]*entity.Event {
 	return eventCache
 }
 
-func (this *EventService) RefreshCacheEvent() {
+func (svc *EventService) RefreshCacheEvent() {
 	eventCache = nil
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.Event))
+	err := service.GetSession().Sync(new(entity.Event))
+	if err != nil {
+		return
+	}
 	eventService.OrmBaseService.GetSeqName = eventService.GetSeqName
 	eventService.OrmBaseService.FactNewEntity = eventService.NewEntity
 	eventService.OrmBaseService.FactNewEntities = eventService.NewEntities
