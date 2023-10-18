@@ -29,39 +29,25 @@ type InOutPoint struct {
 	Count     int64                    `json:"count,omitempty"`
 }
 
-func (svc *DayLineService) FindAllInOutEvent(ts_code string, eventCode string, startDate int64, endDate int64, compareValue float64, condNum int) map[string][]*entity.DayLine {
-	ecs := strings.Split(eventCode, ",")
-	InOutEventMap := make(map[string][]*entity.DayLine)
-	for _, ec := range ecs {
-		inOutPoint, _ := svc.FindInOutEvent(ts_code, 0, ec, nil, startDate, endDate, compareValue, condNum, 0, 0, 0)
-		if inOutPoint != nil {
-			InOutEventMap[ec] = inOutPoint.Data
-		}
-	}
-
-	return InOutEventMap
-}
-
-func (svc *DayLineService) FindInOutEvent(ts_code string, tradedate int64, eventCode string, filterParas []interface{}, startDate int64, endDate int64, compareValue float64, condNum int, from int, limit int, count int64) (*InOutPoint, error) {
+// FindInOutEvent 查询买卖点的方法，
+// 与FindFlexPoint的不同是通过eventCode生成filterContent
+func (svc *DayLineService) FindInOutEvent(tsCode string, tradeDate int64, eventCode string, filterParas []interface{}, startDate int64, endDate int64, from int, limit int, count int64) (*InOutPoint, error) {
 	efs, ok := GetEventFilterService().GetCacheEventFilter()[eventCode]
 	if !ok {
 		return nil, errors.New("eventCode err")
 	}
-	con, fields := svc.buildConds(efs, compareValue, condNum)
-	if con == "" {
-		return nil, errors.New("content err")
+	filterContent, fields := svc.buildFilterContent(efs)
+	if filterContent == "" {
+		return nil, errors.New("filterContent err")
 	}
-	inOutPoint, err := svc.FindFlexPoint(ts_code, tradedate, fields, con, filterParas, startDate, endDate, from, limit, count)
+	inOutPoint, err := svc.FindFlexPoint(tsCode, tradeDate, fields, filterContent, filterParas, startDate, endDate, from, limit, count)
 
 	return inOutPoint, err
 }
 
-/*
-*
-compareValue是负数，表示放宽比较值，缺省是-0.01；num是负数，表示放宽条件个数，缺省是0
-*/
-func (svc *DayLineService) buildConds(efs []*entity.EventFilter, compareValue float64, condNum int) (string, []string) {
-	cond := ""
+// 构建查询条件，在EventFilter的参数值为空的时候，使用compareValue，是比较值，缺省是>0；num是负数，表示放宽条件个数，缺省是0
+func (svc *DayLineService) buildFilterContent(efs []*entity.EventFilter) (string, []string) {
+	filterContent := ""
 	fields := make([]string, 0)
 	k := 0
 	//默认>0，计算汇总值的时候用不上
@@ -86,34 +72,38 @@ func (svc *DayLineService) buildConds(efs []*entity.EventFilter, compareValue fl
 			fields = append(fields, alias)
 		}
 		condParas := ef.CondParas
+		//如果缺乏参数值，则为>0
 		if condParas == "" {
-			condParas = ">" + fmt.Sprint(compareValue-0.01)
+			condParas = ">0"
 		}
 		result := "case when " + condContent + condParas + " then 1 else 0 end as " + codeAlias + "_result"
 		fields = append(fields, result)
 		if k != 0 {
-			cond = cond + "+"
+			filterContent = filterContent + "+"
 		}
-		cond = cond + "(case when " + condContent + condParas + " then 1 else 0 end)"
+		filterContent = filterContent + "(case when " + condContent + condParas + " then 1 else 0 end)"
 		k++
 	}
-	cond = "(" + cond + ")>=" + fmt.Sprint(k+condNum)
+	filterContent = "(" + filterContent + ")>=0"
 
-	return cond, fields
+	return filterContent, fields
 }
 
-func (svc *DayLineService) FindFlexPoint(ts_code string, tradedate int64, fields []string, eventContent string, filterParas []interface{}, startDate int64, endDate int64, from int, limit int, count int64) (*InOutPoint, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindFlexPoint 最基本的查询买卖点的方法，最为灵活
+// 条件包括tsCode，tradeDate，filterContent（filterParas），startDate，endDate
+// 如果filterContent中有?，则filterParas中必须有对应的参数值
+func (svc *DayLineService) FindFlexPoint(tsCode string, tradeDate int64, fields []string, filterContent string, filterParas []interface{}, startDate int64, endDate int64, from int, limit int, count int64) (*InOutPoint, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	conds += " and ma3close is not null and ma3close!=0 and (high-low)!=0"
 	inOutPoint := &InOutPoint{}
 	var err error
-	if tradedate != 0 {
+	if tradeDate != 0 {
 		conds = conds + " and tradedate=?"
-		paras = append(paras, tradedate)
+		paras = append(paras, tradeDate)
 	}
-	if eventContent != "" {
-		conds = conds + " and " + eventContent
+	if filterContent != "" {
+		conds = conds + " and " + filterContent
 		if filterParas != nil && len(filterParas) > 0 {
 			paras = append(paras, filterParas...)
 		}
@@ -135,46 +125,49 @@ func (svc *DayLineService) FindFlexPoint(ts_code string, tradedate int64, fields
 		inOutPoint.Count = count
 	}
 
-	err = svc.Find(&dayLines, nil, "tscode,tradedate desc", from, limit, conds, paras...)
-	if err != nil {
-		return inOutPoint, err
-	}
-	inOutPoint.Data = dayLines
+	// 是否指定输出字段
 	if fields == nil || len(fields) == 0 {
+		err = svc.Find(&dayLines, nil, "tscode,tradedate desc", from, limit, conds, paras...)
+		if err != nil {
+			return inOutPoint, err
+		}
+		inOutPoint.Data = dayLines
+
+		return inOutPoint, nil
+	} else {
+		sql := "select tscode as ts_code,tradedate as trade_date," + strings.Join(fields, ",") + " from stk_dayline where " + conds + " order by tscode,tradedate desc"
+		if limit > 0 {
+			sql = sql + " limit " + fmt.Sprint(limit)
+		}
+		sql = sql + " offset " + fmt.Sprint(from)
+		results, err := svc.Query(sql, paras...)
+		if err != nil {
+			return inOutPoint, err
+		}
+		condValues := make([]map[string]interface{}, 0)
+		for _, result := range results {
+			condValue := make(map[string]interface{})
+			for f, r := range result {
+				strVal := string(r)
+				if f == "trade_date" {
+					v, _ := convert.ToObject(strVal, "int64")
+					tradedate := v.(int64)
+					condValue[f] = tradedate
+				} else if f == "ts_code" || strings.HasSuffix(f, "_cond") ||
+					strings.HasSuffix(f, "_name") ||
+					strings.HasSuffix(f, "_alias") ||
+					strings.HasSuffix(f, "_paras") {
+					condValue[f] = strVal
+				} else {
+					v, _ := convert.ToObject(strVal, "float64")
+					r := v.(float64)
+					condValue[f] = r
+				}
+			}
+			condValues = append(condValues, condValue)
+		}
+		inOutPoint.CondValue = condValues
+
 		return inOutPoint, nil
 	}
-	sql := "select tscode as ts_code,tradedate as trade_date," + strings.Join(fields, ",") + " from stk_dayline where " + conds + " order by tscode,tradedate desc"
-	if limit > 0 {
-		sql = sql + " limit " + fmt.Sprint(limit)
-	}
-	sql = sql + " offset " + fmt.Sprint(from)
-	results, err := svc.Query(sql, paras...)
-	if err != nil {
-		return inOutPoint, err
-	}
-	reals := make([]map[string]interface{}, 0)
-	for _, result := range results {
-		real := make(map[string]interface{})
-		for f, r := range result {
-			strVal := string(r)
-			if f == "trade_date" {
-				v, _ := convert.ToObject(strVal, "int64")
-				tradedate := v.(int64)
-				real[f] = tradedate
-			} else if f == "ts_code" || strings.HasSuffix(f, "_cond") ||
-				strings.HasSuffix(f, "_name") ||
-				strings.HasSuffix(f, "_alias") ||
-				strings.HasSuffix(f, "_paras") {
-				real[f] = strVal
-			} else {
-				v, _ := convert.ToObject(strVal, "float64")
-				r := v.(float64)
-				real[f] = r
-			}
-		}
-		reals = append(reals, real)
-	}
-	inOutPoint.CondValue = reals
-
-	return inOutPoint, nil
 }

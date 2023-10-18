@@ -11,17 +11,13 @@ import (
 	"github.com/curltech/go-colla-stock/stock"
 	"github.com/curltech/go-colla-stock/stock/eastmoney"
 	"github.com/curltech/go-colla-stock/stock/entity"
-	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
 	"strings"
 )
 
-/*
-*
-获取某只股票的分钟线到年线的数据
-*/
+// GetKLine 获取某只股票的分钟线到年线的数据
 func (svc *DayLineService) GetKLine(secId string, beg int, end int, limit int, klt int) ([]string, error) {
 	params := eastmoney.CreateDayLineRequestParam()
 	params.SecId = getSecId(secId)
@@ -59,10 +55,7 @@ func (svc *DayLineService) GetKLine(secId string, beg int, end int, limit int, k
 	return r.Data.Klines, nil
 }
 
-/*
-*
-获取某只股票的日线数据
-*/
+// GetDayLine 获取某只股票的日线数据
 func (svc *DayLineService) GetDayLine(secId string, beg int, end int, limit int, previous *entity.DayLine) ([]*entity.DayLine, error) {
 	klines, err := svc.GetKLine(secId, beg, end, limit, 101)
 	if err != nil {
@@ -101,13 +94,10 @@ func (svc *DayLineService) GetDayLine(secId string, beg int, end int, limit int,
 	return dayLines, err
 }
 
-/*
-*
-获取某只股票最新的日期
-*/
-func (svc *DayLineService) findByTradeDate(ts_code string, startDate int64, endDate int64) ([]*entity.DayLine, error) {
+// 获取某只股票最新的日期
+func (svc *DayLineService) findByTradeDate(tsCode string, startDate int64, endDate int64) ([]*entity.DayLine, error) {
 	cond := &entity.DayLine{}
-	cond.TsCode = ts_code
+	cond.TsCode = tsCode
 	dayLines := make([]*entity.DayLine, 0)
 	conds := "? <= tradedate"
 	paras := make([]interface{}, 0)
@@ -173,10 +163,7 @@ func strToDayLine(secId string, kline string) (*entity.DayLine, error) {
 	return dayLine, nil
 }
 
-/*
-*
-获取某只股票的日线资金流动数据，最多6个月的数据
-*/
+// GetFinanceFlow 获取某只股票的日线资金流动数据，最多6个月的数据
 func (svc *DayLineService) GetFinanceFlow(secId string, beg int, limit int) ([]*entity.DayLine, error) {
 	params := eastmoney.CreateFinanceFlowRequestParam()
 	params.SecId = getSecId(secId)
@@ -279,18 +266,15 @@ func strToFloat(value string) (float64, error) {
 	return f, nil
 }
 
-/*
-*
-刷新所有股票的日线数据，beg为负数的时候从已有的最新数据开始更新
-*/
+// RefreshDayLine 刷新所有股票的日线数据，beg为负数的时候从已有的最新数据开始更新
 func (svc *DayLineService) RefreshDayLine(beg int64) error {
 	processLog := GetProcessLogService().StartLog("dayline", "RefreshDayLine", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateDayLine, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		para = append(para, beg)
 		para = append(para, 10000)
 		routinePool.Invoke(para)
@@ -306,13 +290,13 @@ func (svc *DayLineService) AsyncUpdateDayLine(para interface{}) {
 	beg := (para.([]interface{}))[1].(int64)
 	limit := (para.([]interface{}))[2].(int)
 
-	svc.GetUpdateDayline(secId, beg, limit)
+	_, err := svc.GetUpdateDayline(secId, beg, limit)
+	if err != nil {
+		return
+	}
 }
 
-/*
-*
-当天15点之前缺当天资金流数据
-*/
+// GetUpdateDayline 当天15点之前缺当天资金流数据
 func (svc *DayLineService) GetUpdateDayline(secId string, beg int64, limit int) ([]*entity.DayLine, error) {
 	processLog := GetProcessLogService().StartLog("dayline", "GetUpdateDayline", secId)
 	ps, err := svc.UpdateDayline(secId, beg, limit)
@@ -321,7 +305,10 @@ func (svc *DayLineService) GetUpdateDayline(secId string, beg int64, limit int) 
 		return ps, err
 	}
 	if len(ps) > 0 {
-		svc.UpdateStat(secId, 0)
+		_, err = svc.UpdateStat(secId, 0)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return ps, err
 }
@@ -339,7 +326,10 @@ func (svc *DayLineService) deleteDayline(secId string, beg int64) error {
 
 func (svc *DayLineService) UpdateDayline(secId string, beg int64, limit int) ([]*entity.DayLine, error) {
 	if beg >= 0 {
-		svc.deleteDayline(secId, beg)
+		err := svc.deleteDayline(secId, beg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	var pre *entity.DayLine
 	previous, err := svc.findMaxTradeDate(secId)
@@ -350,7 +340,10 @@ func (svc *DayLineService) UpdateDayline(secId string, beg int64, limit int) ([]
 		if beg < 0 {
 			beg = pre.TradeDate
 			//删除最新一天的数据，重新获取，因为可能是获取分钟线时形成的数据，不准确
-			svc.deleteDayline(secId, beg)
+			err = svc.deleteDayline(secId, beg)
+			if err != nil {
+				return nil, err
+			}
 			if len(previous) > 1 && previous[1] != nil {
 				pre = previous[1]
 			} else {
@@ -383,7 +376,7 @@ func (svc *DayLineService) UpdateFinanceFlow(dayLines []*entity.DayLine, secId s
 	if err != nil {
 		logger.Sugar.Errorf("Error:%v", err.Error())
 	}
-	dls := make(map[string]*entity.DayLine, 0)
+	dls := make(map[string]*entity.DayLine)
 	for _, ff := range ffs {
 		dls[ff.TsCode+":"+fmt.Sprint(ff.TradeDate)] = ff
 	}
@@ -443,11 +436,11 @@ func (svc *DayLineService) findAggregation(startDate int64, endDate int64) (map[
 	for _, colname := range DaylineHeader[2:] {
 		fieldname, ok := jsonMap[colname]
 		if ok {
-			lower_fieldname := strings.ToLower(fieldname)
-			sql = sql + ",max(" + lower_fieldname + ")" + " max_" + fieldname
-			sql = sql + ",min(" + lower_fieldname + ")" + " min_" + fieldname
-			sql = sql + ",avg(" + lower_fieldname + ")" + " avg_" + fieldname
-			sql = sql + ",stddev(" + lower_fieldname + ")" + " stddev_" + fieldname
+			lowerFieldname := strings.ToLower(fieldname)
+			sql = sql + ",max(" + lowerFieldname + ")" + " max_" + fieldname
+			sql = sql + ",min(" + lowerFieldname + ")" + " min_" + fieldname
+			sql = sql + ",avg(" + lowerFieldname + ")" + " avg_" + fieldname
+			sql = sql + ",stddev(" + lowerFieldname + ")" + " stddev_" + fieldname
 		}
 	}
 	sql = sql + " from stk_dayline"
@@ -465,10 +458,10 @@ func (svc *DayLineService) findAggregation(startDate int64, endDate int64) (map[
 		return nil, err
 	}
 	aggreDaylines := make(map[stock.AggregationType]map[string]*entity.DayLine)
-	aggreDaylines[stock.Aggregation_MAX] = make(map[string]*entity.DayLine, 0)
-	aggreDaylines[stock.Aggregation_MIN] = make(map[string]*entity.DayLine, 0)
-	aggreDaylines[stock.Aggregation_MEAN] = make(map[string]*entity.DayLine, 0)
-	aggreDaylines[stock.Aggregation_STDDEV] = make(map[string]*entity.DayLine, 0)
+	aggreDaylines[stock.Aggregation_MAX] = make(map[string]*entity.DayLine)
+	aggreDaylines[stock.Aggregation_MIN] = make(map[string]*entity.DayLine)
+	aggreDaylines[stock.Aggregation_MEAN] = make(map[string]*entity.DayLine)
+	aggreDaylines[stock.Aggregation_STDDEV] = make(map[string]*entity.DayLine)
 	for _, result := range results {
 		maxDayline := &entity.DayLine{}
 		minDayline := &entity.DayLine{}
@@ -476,20 +469,35 @@ func (svc *DayLineService) findAggregation(startDate int64, endDate int64) (map[
 		stddevDayline := &entity.DayLine{}
 		for colname, v := range result {
 			if colname == "TsCode" {
-				reflect.Set(maxDayline, "TsCode", string(v))
+				err = reflect.Set(maxDayline, "TsCode", string(v))
+				if err != nil {
+					return nil, err
+				}
 			} else {
 				fieldnames := strings.Split(colname, "_")
 				if fieldnames[0] == "max" {
-					reflect.Set(maxDayline, fieldnames[1], string(v))
+					err = reflect.Set(maxDayline, fieldnames[1], string(v))
+					if err != nil {
+						return nil, err
+					}
 				}
 				if fieldnames[0] == "min" {
-					reflect.Set(minDayline, fieldnames[1], string(v))
+					err = reflect.Set(minDayline, fieldnames[1], string(v))
+					if err != nil {
+						return nil, err
+					}
 				}
 				if fieldnames[0] == "mean" {
-					reflect.Set(meanDayline, fieldnames[1], string(v))
+					err = reflect.Set(meanDayline, fieldnames[1], string(v))
+					if err != nil {
+						return nil, err
+					}
 				}
 				if fieldnames[0] == "stddev" {
-					reflect.Set(stddevDayline, fieldnames[1], string(v))
+					err = reflect.Set(stddevDayline, fieldnames[1], string(v))
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -502,15 +510,18 @@ func (svc *DayLineService) findAggregation(startDate int64, endDate int64) (map[
 	return aggreDaylines, nil
 }
 
-/*
-*
-src: "C:\stock\data\origin\lday"
-minmax: "C:\stock\data\minmax\lday"
-standard: "C:\stock\data\standard\lday"
-*/
+// StdPath src: "C:\stock\data\origin\lday"
+// minmax: "C:\stock\data\minmax\lday"
+// standard: "C:\stock\data\standard\lday"
 func (svc *DayLineService) StdPath(src string, minmax string, standard string, startDate int64, endDate int64) error {
-	stock.Mkdir(minmax + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate))
-	stock.Mkdir(standard + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate))
+	err := stock.Mkdir(minmax + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate))
+	if err != nil {
+		return err
+	}
+	err = stock.Mkdir(standard + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate))
+	if err != nil {
+		return err
+	}
 	aggreStrs := make(map[stock.AggregationType][]string)
 	for _, typ := range stock.AggregationTypes {
 		aggreStrs[typ] = make([]string, 0)
@@ -519,7 +530,7 @@ func (svc *DayLineService) StdPath(src string, minmax string, standard string, s
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncStdFile, nil)
 	defer routinePool.Release()
 	if src != "" {
-		files, err := ioutil.ReadDir(src)
+		files, err := os.ReadDir(src)
 		if err != nil {
 			return err
 		}
@@ -539,15 +550,15 @@ func (svc *DayLineService) StdPath(src string, minmax string, standard string, s
 			}
 		}
 	} else {
-		ts_codes, _ := GetShareService().GetCacheShare()
-		for _, ts_code := range ts_codes {
+		tsCodes, _ := GetShareService().GetCacheShare()
+		for _, tsCode := range tsCodes {
 			para := make([]interface{}, 0)
 			para = append(para, src)
 			para = append(para, minmax)
 			para = append(para, standard)
 			para = append(para, startDate)
 			para = append(para, endDate)
-			para = append(para, ts_code)
+			para = append(para, tsCode)
 			para = append(para, aggreStrs)
 			routinePool.Invoke(para)
 		}
@@ -556,7 +567,7 @@ func (svc *DayLineService) StdPath(src string, minmax string, standard string, s
 	raw := "ts_code," + strings.Join(DaylineHeader[2:], ",") + "\n"
 	max := raw + strings.Join(aggreStrs[stock.Aggregation_MAX], "\n")
 	maxFileName := minmax + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate) + "\\max.csv"
-	err := ioutil.WriteFile(maxFileName, []byte(max), 0644)
+	err = os.WriteFile(maxFileName, []byte(max), 0644)
 	if err != nil {
 		logger.Sugar.Errorf("%v max failure!", maxFileName)
 	} else {
@@ -565,7 +576,7 @@ func (svc *DayLineService) StdPath(src string, minmax string, standard string, s
 
 	min := raw + strings.Join(aggreStrs[stock.Aggregation_MIN], "\n")
 	minFileName := minmax + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate) + "\\min.csv"
-	err = ioutil.WriteFile(minFileName, []byte(min), 0644)
+	err = os.WriteFile(minFileName, []byte(min), 0644)
 	if err != nil {
 		logger.Sugar.Errorf("%v min failure!", minFileName)
 	} else {
@@ -574,7 +585,7 @@ func (svc *DayLineService) StdPath(src string, minmax string, standard string, s
 
 	mean := raw + strings.Join(aggreStrs[stock.Aggregation_MEAN], "\n")
 	meanFileName := standard + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate) + "\\mean.csv"
-	err = ioutil.WriteFile(meanFileName, []byte(mean), 0644)
+	err = os.WriteFile(meanFileName, []byte(mean), 0644)
 	if err != nil {
 		logger.Sugar.Errorf("%v mean failure!", meanFileName)
 	} else {
@@ -583,7 +594,7 @@ func (svc *DayLineService) StdPath(src string, minmax string, standard string, s
 
 	std := raw + strings.Join(aggreStrs[stock.Aggregation_STDDEV], "\n")
 	stdFileName := standard + string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate) + "\\std.csv"
-	err = ioutil.WriteFile(stdFileName, []byte(std), 0644)
+	err = os.WriteFile(stdFileName, []byte(std), 0644)
 	if err != nil {
 		logger.Sugar.Errorf("%v std failure!", stdFileName)
 	} else {
@@ -623,7 +634,7 @@ func (svc *DayLineService) AsyncStdFile(para interface{}) {
 }
 
 func (svc *DayLineService) LoadFile(src string, startDate int64, endDate int64, filename string) ([]*entity.DayLine, error) {
-	c, err := ioutil.ReadFile(src + string(os.PathSeparator) + filename)
+	c, err := os.ReadFile(src + string(os.PathSeparator) + filename)
 	if err != nil {
 		return nil, err
 	}
@@ -655,16 +666,22 @@ func (svc *DayLineService) LoadFile(src string, startDate int64, endDate int64, 
 				}
 				if colname == "trade_date" {
 					v, _ := convert.ToObject(values[j], fieldtyp)
-					trade_date := v.(int64)
-					if trade_date >= startDate && trade_date <= endDate {
+					tradeDate := v.(int64)
+					if tradeDate >= startDate && tradeDate <= endDate {
 						dayLine = &entity.DayLine{}
-						reflect.SetValue(dayLine, fieldname, trade_date)
+						err = reflect.SetValue(dayLine, fieldname, tradeDate)
+						if err != nil {
+							return nil, err
+						}
 						dayLines = append(dayLines, dayLine)
 					}
 				} else {
 					if dayLine != nil {
 						val, _ := convert.ToObject(values[j], fieldtyp)
-						reflect.SetValue(dayLine, fieldname, val)
+						err = reflect.SetValue(dayLine, fieldname, val)
+						if err != nil {
+							return nil, err
+						}
 					}
 				}
 				j++
@@ -699,33 +716,33 @@ func (svc *DayLineService) LoadFile(src string, startDate int64, endDate int64, 
 func (svc *DayLineService) StdFile(startDate int64, endDate int64, filename string, minmax string, standard string) (map[stock.AggregationType]*entity.DayLine, error) {
 	var dayLines []*entity.DayLine
 	var err error
-	ts_code := strings.TrimSuffix(filename, ".csv")
+	tsCode := strings.TrimSuffix(filename, ".csv")
 	if strings.HasSuffix(filename, ".csv") {
 		dayLines, err = svc.LoadFile("", startDate, endDate, filename)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		dayLines, err = GetDayLineService().findByTradeDate(ts_code, startDate, endDate)
+		dayLines, err = GetDayLineService().findByTradeDate(tsCode, startDate, endDate)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if len(dayLines) < 100 {
-		logger.Sugar.Warnf("ts_code:%v dayLines len: %v is less than 100!", ts_code, len(dayLines))
+		logger.Sugar.Warnf("ts_code:%v dayLines len: %v is less than 100!", tsCode, len(dayLines))
 		return nil, nil
 	}
-	path := string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate) + string(os.PathSeparator) + ts_code + ".csv"
+	path := string(os.PathSeparator) + fmt.Sprint(startDate) + "-" + fmt.Sprint(endDate) + string(os.PathSeparator) + tsCode + ".csv"
 	aggres, stds, minmaxs := svc.Aggregation(dayLines)
 	minmaxFileName := minmax + path
-	err = ioutil.WriteFile(minmaxFileName, []byte(stock.ToCsv(DaylineHeader[1:], minmaxs)), 0644)
+	err = os.WriteFile(minmaxFileName, []byte(stock.ToCsv(DaylineHeader[1:], minmaxs)), 0644)
 	if err != nil {
 		logger.Sugar.Errorf("%v minmax failure!", minmaxFileName)
 	} else {
 		logger.Sugar.Infof("%v minmax completely!", minmaxFileName)
 	}
 	stdFileName := standard + path
-	err = ioutil.WriteFile(stdFileName, []byte(stock.ToCsv(DaylineHeader[1:], stds)), 0644)
+	err = os.WriteFile(stdFileName, []byte(stock.ToCsv(DaylineHeader[1:], stds)), 0644)
 	if err != nil {
 		logger.Sugar.Errorf("%v std failure!", stdFileName)
 	} else {
@@ -764,30 +781,48 @@ func (svc *DayLineService) Aggregation(dayLines []*entity.DayLine) (map[stock.Ag
 				v, _ = reflect.GetValue(aggre, fieldname)
 				aggreVal := v.(float64)
 				if i == 0 {
-					reflect.SetValue(aggre, fieldname, val)
+					err := reflect.SetValue(aggre, fieldname, val)
+					if err != nil {
+						return nil, nil, nil
+					}
 				}
 				switch typ {
 				case stock.Aggregation_MAX:
 					if i != 0 {
 						if val > aggreVal {
-							reflect.SetValue(aggre, fieldname, val)
+							err := reflect.SetValue(aggre, fieldname, val)
+							if err != nil {
+								return nil, nil, nil
+							}
 						}
 					}
 				case stock.Aggregation_MIN:
 					if i != 0 {
 						if val < aggreVal {
-							reflect.SetValue(aggre, fieldname, val)
+							err := reflect.SetValue(aggre, fieldname, val)
+							if err != nil {
+								return nil, nil, nil
+							}
 						}
 					}
 				case stock.Aggregation_SUM:
 					if i != 0 {
-						reflect.SetValue(aggre, fieldname, aggreVal+val)
+						err := reflect.SetValue(aggre, fieldname, aggreVal+val)
+						if err != nil {
+							return nil, nil, nil
+						}
 					}
 				case stock.Aggregation_COUNT:
 					if i == 0 {
-						reflect.SetValue(aggre, fieldname, 1.0)
+						err := reflect.SetValue(aggre, fieldname, 1.0)
+						if err != nil {
+							return nil, nil, nil
+						}
 					} else {
-						reflect.SetValue(aggre, fieldname, aggreVal+1)
+						err := reflect.SetValue(aggre, fieldname, aggreVal+1)
+						if err != nil {
+							return nil, nil, nil
+						}
 					}
 				default:
 				}
@@ -814,7 +849,10 @@ func (svc *DayLineService) Aggregation(dayLines []*entity.DayLine) (map[stock.Ag
 		v, _ = reflect.GetValue(count, fieldname)
 		countVal := v.(float64)
 		if countVal != 0.0 {
-			reflect.SetValue(mean, fieldname, sumVal/countVal)
+			err := reflect.SetValue(mean, fieldname, sumVal/countVal)
+			if err != nil {
+				return nil, nil, nil
+			}
 		}
 	}
 	stddev, ok := aggres[stock.Aggregation_STDDEV]
@@ -837,7 +875,10 @@ func (svc *DayLineService) Aggregation(dayLines []*entity.DayLine) (map[stock.Ag
 				diff := val - meanVal
 				v, _ = reflect.GetValue(stddev, fieldname)
 				stddevVal := v.(float64)
-				reflect.SetValue(stddev, fieldname, stddevVal+diff*diff)
+				err := reflect.SetValue(stddev, fieldname, stddevVal+diff*diff)
+				if err != nil {
+					return nil, nil, nil
+				}
 			}
 		}
 		for _, colname := range colnames {
@@ -855,19 +896,22 @@ func (svc *DayLineService) Aggregation(dayLines []*entity.DayLine) (map[stock.Ag
 			countVal := v.(float64)
 			if countVal != 1.0 {
 				stddevVal = stddevVal / (countVal - 1.0)
-				reflect.SetValue(stddev, fieldname, math.Sqrt(stddevVal))
+				err := reflect.SetValue(stddev, fieldname, math.Sqrt(stddevVal))
+				if err != nil {
+					return nil, nil, nil
+				}
 			}
 		}
 	}
 	for _, dayLine := range dayLines {
 		id := dayLine.Id
-		trade_date := dayLine.TradeDate
+		tradeDate := dayLine.TradeDate
 		std := &entity.DayLine{}
 		minmax := &entity.DayLine{}
 		std.Id = id
-		std.TradeDate = trade_date
+		std.TradeDate = tradeDate
 		minmax.Id = id
-		minmax.TradeDate = trade_date
+		minmax.TradeDate = tradeDate
 		for _, colname := range colnames {
 			fieldname := jsonMap[colname]
 			if fieldname == "" {
@@ -885,14 +929,20 @@ func (svc *DayLineService) Aggregation(dayLines []*entity.DayLine) (map[stock.Ag
 			v, _ = reflect.GetValue(stddev, fieldname)
 			stddevVal := v.(float64)
 			if stddevVal != 0 {
-				reflect.SetValue(std, fieldname, (val-meanVal)/stddevVal)
+				err := reflect.SetValue(std, fieldname, (val-meanVal)/stddevVal)
+				if err != nil {
+					return nil, nil, nil
+				}
 			}
 			v, _ = reflect.GetValue(min, fieldname)
 			minVal := v.(float64)
 			v, _ = reflect.GetValue(max, fieldname)
 			maxVal := v.(float64)
 			if maxVal != minVal {
-				reflect.SetValue(minmax, fieldname, (val-minVal)/(maxVal-minVal))
+				err := reflect.SetValue(minmax, fieldname, (val-minVal)/(maxVal-minVal))
+				if err != nil {
+					return nil, nil, nil
+				}
 			}
 		}
 		stds = append(stds, std)

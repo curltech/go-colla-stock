@@ -11,10 +11,8 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/*
-*
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// DayLineController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，
+// 因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type DayLineController struct {
 	controller.BaseController
 }
@@ -32,7 +30,10 @@ func (c *DayLineController) ParsePath(ctx iris.Context) {
 	svc := c.BaseService.(*service.DayLineService)
 	err := svc.ParsePath("C:\\zd_zsone\\vipdoc\\sz\\lday", "C:\\stock\\data\\origin\\lday")
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -40,7 +41,10 @@ func (c *DayLineController) RefreshDayLine(ctx iris.Context) {
 	svc := c.BaseService.(*service.DayLineService)
 	err := svc.RefreshDayLine(-1)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -48,7 +52,10 @@ func (c *DayLineController) RefreshTodayLine(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -66,7 +73,10 @@ func (c *DayLineController) RefreshTodayLine(ctx iris.Context) {
 	}
 	err = svc.RefreshDayLine(startDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -74,46 +84,64 @@ func (c *DayLineController) GetUpdateDayLine(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	var ts_code string
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.GetUpdateDayline(ts_code, -1, 10000)
+	ps, err := svc.GetUpdateDayline(tsCode, -1, 10000)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) GetUpdateTodayLine(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	var ts_code string
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
 	var startDate int64
@@ -127,19 +155,28 @@ func (c *DayLineController) GetUpdateTodayLine(ctx iris.Context) {
 	if startDate == 0 {
 		startDate = stock.CurrentDate()
 	}
-	ps, err := svc.GetUpdateDayline(ts_code, startDate, 10000)
+	ps, err := svc.GetUpdateDayline(tsCode, startDate, 10000)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) StdPath(ctx iris.Context) {
 	svc := c.BaseService.(*service.DayLineService)
 	err := svc.StdPath("", "C:\\stock\\data\\minmax\\lday", "C:\\stock\\data\\standard\\lday", 20210713, 20211215)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -147,7 +184,10 @@ func (c *DayLineController) RefreshStat(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -162,7 +202,10 @@ func (c *DayLineController) RefreshStat(ctx iris.Context) {
 	svc := c.BaseService.(*service.DayLineService)
 	err = svc.RefreshStat(startDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -170,15 +213,18 @@ func (c *DayLineController) UpdateStat(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	var ts_code string
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code, _ = v.(string)
+		tsCode, _ = v.(string)
 	}
 	var startDate int64
 	v, ok = params["start_date"]
@@ -188,24 +234,36 @@ func (c *DayLineController) UpdateStat(ctx iris.Context) {
 			startDate = int64(f)
 		}
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.UpdateStat(ts_code, startDate)
+	ps, err := svc.UpdateStat(tsCode, startDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) RefreshBeforeMa(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -220,7 +278,10 @@ func (c *DayLineController) RefreshBeforeMa(ctx iris.Context) {
 	svc := c.BaseService.(*service.DayLineService)
 	err = svc.RefreshBeforeMa(startDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -228,15 +289,18 @@ func (c *DayLineController) UpdateBeforeMa(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	var ts_code string
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code, _ = v.(string)
+		tsCode, _ = v.(string)
 	}
 	var startDate int64
 	v, ok = params["start_date"]
@@ -246,19 +310,30 @@ func (c *DayLineController) UpdateBeforeMa(ctx iris.Context) {
 			startDate = int64(f)
 		}
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.UpdateBeforeMa(ts_code, startDate)
+	ps, err := svc.UpdateBeforeMa(tsCode, startDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
+// DayLinePara 查询DayLine的参数结构，主要包括tsCode,tradeDate,startDate,endDate,industry,eventCode,condContent
+// 还有分页参数
 type DayLinePara struct {
 	From           int           `json:"from,omitempty"`
 	Limit          int           `json:"limit,omitempty"`
@@ -275,15 +350,14 @@ type DayLinePara struct {
 	TargetDayCount string        `json:"target_day_count,omitempty"`
 	Cross          string        `json:"cross,omitempty"`
 	EventCode      string        `json:"event_code,omitempty"`
-	EventContent   string        `json:"event_content,omitempty"`
+	FilterContent  string        `json:"filter_content,omitempty"`
 	FilterParas    []interface{} `json:"filter_paras,omitempty"`
-	CompareValue   float64       `json:"compare_value,omitempty"`
-	CondNum        int           `json:"cond_num,omitempty"`
 }
 
+// Search 主要的查询参数进行查询
 func (c *DayLineController) Search(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
@@ -293,7 +367,7 @@ func (c *DayLineController) Search(ctx iris.Context) {
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, count, err := svc.Search(daylinePara.TsCode, daylinePara.Industry, daylinePara.Sector, daylinePara.StartDate, daylinePara.EndDate, daylinePara.Orderby, daylinePara.From, daylinePara.Limit, daylinePara.Count)
+	ps, count, err := svc.Search(dayLinePara.TsCode, dayLinePara.Industry, dayLinePara.Sector, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.Orderby, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
@@ -311,272 +385,376 @@ func (c *DayLineController) Search(ctx iris.Context) {
 }
 
 func (c *DayLineController) FindPreceding(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, count, err := svc.FindPreceding(daylinePara.TsCode, daylinePara.EndDate, daylinePara.From, daylinePara.Limit, daylinePara.Count)
+	ps, count, err := svc.FindPreceding(dayLinePara.TsCode, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) FindFollowing(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, count, err := svc.FindFollowing(daylinePara.TsCode, daylinePara.StartDate, daylinePara.EndDate, daylinePara.From, daylinePara.Limit, daylinePara.Count)
+	ps, count, err := svc.FindFollowing(dayLinePara.TsCode, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) FindRange(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, err := svc.FindRange(daylinePara.TsCode, daylinePara.StartDate, daylinePara.EndDate, daylinePara.Limit)
+	ps, err := svc.FindRange(dayLinePara.TsCode, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.Limit)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) FindHighest(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, count, err := svc.FindHighest(daylinePara.TsCode, daylinePara.DayCount, daylinePara.StartDate, daylinePara.From, daylinePara.Limit, daylinePara.Count)
+	ps, count, err := svc.FindHighest(dayLinePara.TsCode, dayLinePara.DayCount, dayLinePara.StartDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-func (c *DayLineController) FindLowestest(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+func (c *DayLineController) FindLowest(ctx iris.Context) {
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, count, err := svc.FindLowest(daylinePara.TsCode, daylinePara.DayCount, daylinePara.StartDate, daylinePara.From, daylinePara.Limit, daylinePara.Count)
+	ps, count, err := svc.FindLowest(dayLinePara.TsCode, dayLinePara.DayCount, dayLinePara.StartDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) FindMaCross(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, count, err := svc.FindMaCross(daylinePara.TsCode, daylinePara.SrcDayCount, daylinePara.TargetDayCount, daylinePara.StartDate, daylinePara.Cross, daylinePara.From, daylinePara.Limit, daylinePara.Count)
+	ps, count, err := svc.FindMaCross(dayLinePara.TsCode, dayLinePara.SrcDayCount, dayLinePara.TargetDayCount, dayLinePara.StartDate, dayLinePara.Cross, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
+// FindFlexPoint 最基本的查询买卖点的方法，最为灵活
+// 条件包括tsCode，tradeDate，filterContent（filterParas），startDate，endDate
+// 如果filterContent中有?，则filterParas中必须有对应的参数值
 func (c *DayLineController) FindFlexPoint(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	//解析查询参数
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.FilterContent == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("filterContent is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	inOutPoint, err := svc.FindFlexPoint(daylinePara.TsCode, 0, nil, daylinePara.EventContent, daylinePara.FilterParas, daylinePara.StartDate, daylinePara.EndDate, daylinePara.From, daylinePara.Limit, daylinePara.Count)
+	inOutPoint, err := svc.FindFlexPoint(dayLinePara.TsCode, dayLinePara.TradeDate, nil, dayLinePara.FilterContent, dayLinePara.FilterParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
-	ctx.JSON(inOutPoint)
+	err = ctx.JSON(inOutPoint)
+	if err != nil {
+		return
+	}
 }
 
+// FindInOutEvent 查询买卖点的方法，
+// 与FindFlexPoint的不同是通过eventCode生成filterContent
 func (c *DayLineController) FindInOutEvent(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	//if daylinePara.TsCode == "" {
-	//	ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
-	//
-	//	return
-	//}
-	svc := c.BaseService.(*service.DayLineService)
-	inOutPoint, err := svc.FindInOutEvent(daylinePara.TsCode, daylinePara.TradeDate, daylinePara.EventCode, daylinePara.FilterParas, daylinePara.StartDate, daylinePara.EndDate, daylinePara.CompareValue, daylinePara.CondNum, daylinePara.From, daylinePara.Limit, daylinePara.Count)
-	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
-		return
-	}
-	ctx.JSON(inOutPoint)
-}
-
-func (c *DayLineController) FindAllInOutEvent(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
-	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
-
-		return
-	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.EventCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("eventCode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	inOutPoint := svc.FindAllInOutEvent(daylinePara.TsCode, daylinePara.EventCode, daylinePara.StartDate, daylinePara.EndDate, daylinePara.CompareValue, daylinePara.CondNum)
+	inOutPoint, err := svc.FindInOutEvent(dayLinePara.TsCode, dayLinePara.TradeDate, dayLinePara.EventCode, dayLinePara.FilterParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
-	ctx.JSON(inOutPoint)
+	err = ctx.JSON(inOutPoint)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) FindCorr(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if daylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	ps, count, err := svc.FindCorr(daylinePara.TsCode, daylinePara.StartDate, daylinePara.From, daylinePara.Limit, daylinePara.Orderby, daylinePara.Count)
+	ps, count, err := svc.FindCorr(dayLinePara.TsCode, dayLinePara.StartDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Orderby, dayLinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
 func (c *DayLineController) WriteAllFile(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	err = svc.WriteAllFile(daylinePara.StartDate)
+	err = svc.WriteAllFile(dayLinePara.StartDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
 func (c *DayLineController) WriteFile(ctx iris.Context) {
-	daylinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&daylinePara)
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := c.BaseService.(*service.DayLineService)
-	err = svc.WriteFile("", daylinePara.TsCode, daylinePara.StartDate)
+	err = svc.WriteFile("", dayLinePara.TsCode, dayLinePara.StartDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 

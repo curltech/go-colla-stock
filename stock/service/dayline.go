@@ -12,7 +12,6 @@ import (
 	"github.com/curltech/go-colla-core/util/thread"
 	"github.com/curltech/go-colla-stock/stock"
 	"github.com/curltech/go-colla-stock/stock/entity"
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -58,12 +57,9 @@ func (svc *DayLineService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-/*
-*
-读目录下的数据
-*/
+// ParsePath 读目录下的数据
 func (svc *DayLineService) ParsePath(src string, target string) error {
-	files, err := ioutil.ReadDir(src)
+	files, err := os.ReadDir(src)
 	if err != nil {
 		return err
 	}
@@ -81,8 +77,14 @@ func (svc *DayLineService) ParsePath(src string, target string) error {
 		}
 	}
 	routinePool.Wait(nil)
-	stock.Rename(src, src+"-"+fmt.Sprint(stock.CurrentDate()))
-	stock.Mkdir(src)
+	err = stock.Rename(src, src+"-"+fmt.Sprint(stock.CurrentDate()))
+	if err != nil {
+		return err
+	}
+	err = stock.Mkdir(src)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -90,13 +92,16 @@ func (svc *DayLineService) AsyncParseFile(para interface{}) {
 	src := (para.([]string))[0]
 	target := (para.([]string))[1]
 	filename := (para.([]string))[2]
-	svc.ParseFile(src, target, filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY)
+	err := svc.ParseFile(src, target, filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY)
+	if err != nil {
+		return
+	}
 }
 
 func (svc *DayLineService) ParseFile(src string, target string, filename string, flag int) error {
 	shareId := strings.TrimSuffix(filename, ".day")
 	logger.Sugar.Infof("shareId:%v", shareId)
-	content, err := ioutil.ReadFile(src + string(os.PathSeparator) + filename)
+	content, err := os.ReadFile(src + string(os.PathSeparator) + filename)
 	if err != nil {
 		return err
 	}
@@ -107,10 +112,21 @@ func (svc *DayLineService) ParseFile(src string, target string, filename string,
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	file.Write([]byte(raw))
+	defer func(file *os.File) {
+		err = file.Close()
+		if err != nil {
+
+		}
+	}(file)
+	_, err = file.Write([]byte(raw))
+	if err != nil {
+		return err
+	}
 	logger.Sugar.Infof("Parse day file %v record %v completely!", targetFileName, len(dayLines))
-	svc.batchSave(dayLines)
+	err = svc.batchSave(dayLines)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -180,8 +196,8 @@ func (svc *DayLineService) ParseByte(shareId string, content []byte) []interface
 	return dayLines
 }
 
-func (svc *DayLineService) findMaxTradeDate(ts_code string) ([]*entity.DayLine, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+func (svc *DayLineService) findMaxTradeDate(tsCode string) ([]*entity.DayLine, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	err := svc.Find(&dayLines, nil, "tradedate desc", 0, 2, conds, paras...)
 	if err != nil {
@@ -194,8 +210,8 @@ func (svc *DayLineService) findMaxTradeDate(ts_code string) ([]*entity.DayLine, 
 	return nil, nil
 }
 
-func (svc *DayLineService) findMaxMaTradeDate(ts_code string, fieldname string) (*entity.DayLine, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+func (svc *DayLineService) findMaxMaTradeDate(tsCode string, fieldname string) (*entity.DayLine, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	conds = conds + " and " + fieldname + "!=0 and " + fieldname + " is not null"
 	dayLines := make([]*entity.DayLine, 0)
 	err := svc.Find(&dayLines, nil, "tradedate desc", 0, 4, conds, paras...)
@@ -209,8 +225,8 @@ func (svc *DayLineService) findMaxMaTradeDate(ts_code string, fieldname string) 
 	return nil, nil
 }
 
-func (svc *DayLineService) Search(ts_code string, industry string, sector string, startDate int64, endDate int64, orderby string, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+func (svc *DayLineService) Search(tsCode string, industry string, sector string, startDate int64, endDate int64, orderby string, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	if industry != "" {
 		conds += " and tscode in (select tscode from stk_share where industry = ?)"
@@ -249,12 +265,9 @@ func (svc *DayLineService) Search(ts_code string, industry string, sector string
 
 var dayCounts = []string{"1", "3", "5", "10", "13", "20", "21", "30", "34", "55", "60", "90", "120", "144", "233", "240"}
 
-/*
-*
-获取某时间点前limit条数据，如果没有日期范围的指定，就是返回最新的回溯limit条数据
-*/
-func (svc *DayLineService) FindPreceding(ts_code string, endDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindPreceding 获取某时间点前limit条数据，如果没有日期范围的指定，就是返回最新的回溯limit条数据
+func (svc *DayLineService) FindPreceding(tsCode string, endDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	conds += " and ma3close is not null and ma3close!=0"
 	if endDate != 0 {
@@ -286,11 +299,9 @@ func (svc *DayLineService) FindPreceding(ts_code string, endDate int64, from int
 	return ps, count, nil
 }
 
-/*
-获取某时间点后limit条数据，如果没有日期范围的指定，就是返回最早limit条数据
-*/
-func (svc *DayLineService) FindFollowing(ts_code string, startDate int64, endDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindFollowing 获取某时间点后limit条数据，如果没有日期范围的指定，就是返回最早limit条数据
+func (svc *DayLineService) FindFollowing(tsCode string, startDate int64, endDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	conds += " and ma3close is not null and ma3close!=0"
 	if startDate != 0 {
@@ -319,24 +330,22 @@ func (svc *DayLineService) FindFollowing(ts_code string, startDate int64, endDat
 	return dayLines, count, nil
 }
 
-/*
-获取某时间点前后limit条数据
-*/
-func (svc *DayLineService) FindRange(ts_code string, startDate int64, endDate int64, limit int) ([]*entity.DayLine, error) {
-	preceding, _, err := svc.FindPreceding(ts_code, startDate, 0, limit, 0)
+// FindRange 获取某时间点前后limit条数据
+func (svc *DayLineService) FindRange(tsCode string, startDate int64, endDate int64, limit int) ([]*entity.DayLine, error) {
+	preceding, _, err := svc.FindPreceding(tsCode, startDate, 0, limit, 0)
 	if err != nil {
 		return nil, err
 	}
 	var daylines []*entity.DayLine
 	if endDate != 0 && endDate > startDate {
-		daylines, _, err = svc.FindFollowing(ts_code, startDate, endDate, 0, 0, 0)
+		daylines, _, err = svc.FindFollowing(tsCode, startDate, endDate, 0, 0, 0)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		endDate = startDate
 	}
-	following, _, err := svc.FindFollowing(ts_code, endDate, 0, 0, limit, 0)
+	following, _, err := svc.FindFollowing(tsCode, endDate, 0, 0, limit, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -354,11 +363,9 @@ func (svc *DayLineService) FindRange(ts_code string, startDate int64, endDate in
 	return preceding, nil
 }
 
-/*
-获取某时间点后，前后dayCount内的是最高点的，limit条数据
-*/
-func (svc *DayLineService) FindHighest(ts_code string, dayCount string, startDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindHighest 获取某时间点后，前后dayCount内的是最高点的，limit条数据
+func (svc *DayLineService) FindHighest(tsCode string, dayCount string, startDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	if dayCount == "" {
 		return dayLines, count, errors.New("")
@@ -395,11 +402,9 @@ func (svc *DayLineService) FindHighest(ts_code string, dayCount string, startDat
 	return dayLines, count, nil
 }
 
-/*
-获取某时间点后，前后dayCount内的是最高点的，limit条数据
-*/
-func (svc *DayLineService) FindLowest(ts_code string, dayCount string, startDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindLowest 获取某时间点后，前后dayCount内的是最高点的，limit条数据
+func (svc *DayLineService) FindLowest(tsCode string, dayCount string, startDate int64, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	if dayCount == "" {
 		return dayLines, count, errors.New("")
@@ -436,11 +441,9 @@ func (svc *DayLineService) FindLowest(ts_code string, dayCount string, startDate
 	return dayLines, count, nil
 }
 
-/*
-获取某时间点后，两dayCount均线交叉的，limit条数据
-*/
-func (svc *DayLineService) FindMaCross(ts_code string, srcDayCount string, targetDayCount string, startDate int64, cross string, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// FindMaCross 获取某时间点后，两dayCount均线交叉的，limit条数据
+func (svc *DayLineService) FindMaCross(tsCode string, srcDayCount string, targetDayCount string, startDate int64, cross string, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)
 	if srcDayCount == "1" || srcDayCount == "3" || targetDayCount == "1" || targetDayCount == "3" {
 		return dayLines, count, errors.New("")
@@ -492,10 +495,7 @@ func (svc *DayLineService) FindMaCross(ts_code string, srcDayCount string, targe
 	return dayLines, count, nil
 }
 
-/*
-*
-查找收盘价相关性的股票
-*/
+// FindCorr 查找收盘价相关性的股票
 func (svc *DayLineService) FindCorr(tsCode string, startDate int64, from int, limit int, orderby string, count int64) ([]*entity.PortfolioStat, int64, error) {
 	paras := make([]interface{}, 0)
 	sql := "select src.tscode as ts_code,target.tscode as target_ts_code,corr(src.pctchgclose,target.pctchgclose) as stat_value" +
@@ -567,10 +567,7 @@ func (svc *DayLineService) FindCorr(tsCode string, startDate int64, from int, li
 	return corrs, count, nil
 }
 
-/*
-*
-刷新所有股票的日线统计数据，包括移动平均，累计增长，均值，相对标准差
-*/
+// RefreshStat 刷新所有股票的日线统计数据，包括移动平均，累计增长，均值，相对标准差
 func (svc *DayLineService) RefreshStat(startDate int64) error {
 	processLog := GetProcessLogService().StartLog("", "RefreshStat", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateStat, nil)
@@ -588,9 +585,12 @@ func (svc *DayLineService) RefreshStat(startDate int64) error {
 }
 
 func (svc *DayLineService) AsyncUpdateStat(para interface{}) {
-	tscode := (para.([]interface{}))[0].(string)
+	tsCode := (para.([]interface{}))[0].(string)
 	startDate := (para.([]interface{}))[1].(int64)
-	svc.UpdateStat(tscode, startDate)
+	_, err := svc.UpdateStat(tsCode, startDate)
+	if err != nil {
+		return
+	}
 }
 
 func (svc *DayLineService) UpdateStat(tscode string, startDate int64) (int64, error) {
@@ -735,36 +735,33 @@ func (svc *DayLineService) updateStat(tscode string, startDate int64) (int64, er
 	return result.RowsAffected()
 }
 
-/*
-*
-刷新所有股票的日线统计数据，包括移动平均，累计增长，均值，相对标准差
-*/
+// RefreshBeforeMa 刷新所有股票的日线统计数据，包括移动平均，累计增长，均值，相对标准差
 func (svc *DayLineService) RefreshBeforeMa(startDate int64) error {
-	preocessLog := GetProcessLogService().StartLog("", "RefreshBeforeMa", "")
+	processLog := GetProcessLogService().StartLog("", "RefreshBeforeMa", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateBeforeMa, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		para = append(para, startDate)
 		routinePool.Invoke(para)
 	}
 	routinePool.Wait(nil)
-	GetProcessLogService().EndLog(preocessLog, "", "")
+	GetProcessLogService().EndLog(processLog, "", "")
 	return nil
 }
 
 func (svc *DayLineService) AsyncUpdateBeforeMa(para interface{}) {
 	tscode := (para.([]interface{}))[0].(string)
 	startDate := (para.([]interface{}))[1].(int64)
-	svc.UpdateBeforeMa(tscode, startDate)
+	_, err := svc.UpdateBeforeMa(tscode, startDate)
+	if err != nil {
+		return
+	}
 }
 
-/*
-*
-填充过去1，3，5天的各移动平均值
-*/
+// UpdateBeforeMa 填充过去1，3，5天的各移动平均值
 func (svc *DayLineService) UpdateBeforeMa(tscode string, startDate int64) (int64, error) {
 	jsonMap, _, jsonHeads := stock.GetJsonMap(&entity.DayLine{})
 	sql := "update stk_dayline d set "
@@ -845,7 +842,10 @@ func (svc *DayLineService) UpdateBeforeMa(tscode string, startDate int64) (int64
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.DayLine))
+	err := service.GetSession().Sync(new(entity.DayLine))
+	if err != nil {
+		return
+	}
 	dayLineService.OrmBaseService.GetSeqName = dayLineService.GetSeqName
 	dayLineService.OrmBaseService.FactNewEntity = dayLineService.NewEntity
 	dayLineService.OrmBaseService.FactNewEntities = dayLineService.NewEntities
