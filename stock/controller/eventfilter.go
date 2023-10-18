@@ -9,30 +9,26 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// EventFilterController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type EventFilterController struct {
 	controller.BaseController
 }
 
 var eventFilterController *EventFilterController
 
-func (this *EventFilterController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *EventFilterController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.EventFilter, 0)
 	err := message.Unmarshal(json, &entities)
 
 	return &entities, err
 }
 
-func (this *EventFilterController) RefreshCacheEventFilter(ctx iris.Context) {
-	svc := this.BaseService.(*service.EventFilterService)
+func (ctl *EventFilterController) RefreshCacheEventFilter(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.EventFilterService)
 	svc.RefreshCacheEventFilter()
 }
 
-/**
-注册bean管理器，注册序列
-*/
+// 注册bean管理器，注册序列
 func init() {
 	eventFilterController = &EventFilterController{
 		BaseController: controller.BaseController{

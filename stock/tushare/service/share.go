@@ -12,7 +12,7 @@ type ShareRequest struct {
 	IsHs       string `json:"is_hs,omitempty"`       // N  是否沪深港通标的,N否 H沪股通 S深股通
 }
 
-// 获取基础信息数据,包括股票代码、名称、上市日期、退市日期等
+// StockBasic 获取基础信息数据,包括股票代码、名称、上市日期、退市日期等
 func StockBasic(params ShareRequest) (tsData []*entity.Share, err error) {
 	resp, err := FastPost(&TushareRequest{
 		ApiName: "stock_basic",
@@ -26,7 +26,7 @@ func StockBasic(params ShareRequest) (tsData []*entity.Share, err error) {
 }
 
 func assembleStockBasic(tsRsp *TushareResponse) []*entity.Share {
-	tsData := []*entity.Share{}
+	var tsData []*entity.Share
 	for _, data := range tsRsp.Data.Items {
 		body, err := ReflectResponseData(tsRsp.Data.Fields, data)
 		if err == nil {

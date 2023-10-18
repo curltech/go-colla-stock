@@ -11,84 +11,107 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// WmqyLineController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，
+// 因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type WmqyLineController struct {
 	controller.BaseController
 }
 
 var wmqyLineController *WmqyLineController
 
-func (this *WmqyLineController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *WmqyLineController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.WmqyLine, 0)
 	err := message.Unmarshal(json, &entities)
 
 	return &entities, err
 }
 
-func (this *WmqyLineController) RefreshWmqyLine(ctx iris.Context) {
-	svc := this.BaseService.(*service.WmqyLineService)
+func (ctl *WmqyLineController) RefreshWmqyLine(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.WmqyLineService)
 	err := svc.RefreshWmqyLine(-1)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (this *WmqyLineController) GetUpdateWmqyLine(ctx iris.Context) {
+func (ctl *WmqyLineController) GetUpdateWmqyLine(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.WmqyLineService)
-	var ts_code string
+	svc := ctl.BaseService.(*service.WmqyLineService)
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err = ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.GetUpdateWmqyLine(ts_code, -1, 10000, nil)
+	ps, err := svc.GetUpdateWmqyLine(tsCode, -1, 10000, nil)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
-func (this *WmqyLineController) StdPath(ctx iris.Context) {
-	svc := this.BaseService.(*service.WmqyLineService)
+func (ctl *WmqyLineController) StdPath(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.WmqyLineService)
 	err := svc.StdPath("C:\\stock\\data\\minmax\\qline", "C:\\stock\\data\\standard\\qline", 19900101, 20211231)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (this *WmqyLineController) FindQPerformance(ctx iris.Context) {
+func (ctl *WmqyLineController) FindQPerformance(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := service.GetQPerformanceService()
-	var ts_code string
+	var tsCode string
 	var startDate string
 	var endDate string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err = ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
 	v, ok = params["startDate"]
@@ -114,36 +137,48 @@ func (this *WmqyLineController) FindQPerformance(ctx iris.Context) {
 	if ok {
 		isWinsorize = v.(bool)
 	}
-	wmqyLineMap, err := svc.FindQPerformance(service.LineType_Wmqy, ts_code, startDate, endDate)
+	wmqyLineMap, err := svc.FindQPerformance(service.LineType_Wmqy, tsCode, startDate, endDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc.Compute(wmqyLineMap, nil)
 	qps := svc.StdMap(wmqyLineMap, service.StdType_MinMax, isWinsorize)
-	ctx.JSON(qps)
+	err = ctx.JSON(qps)
+	if err != nil {
+		return
+	}
 }
 
-func (this *WmqyLineController) FindQExpress(ctx iris.Context) {
+func (ctl *WmqyLineController) FindQExpress(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := service.GetQPerformanceService()
-	var ts_code string
+	var tsCode string
 	var startDate string
 	var endDate string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err = ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
 	v, ok = params["startDate"]
@@ -164,9 +199,12 @@ func (this *WmqyLineController) FindQExpress(ctx iris.Context) {
 			startDate, _ = stock.AddYear(today, -term)
 		}
 	}
-	wmqyLineMap, err := svc.FindQExpress(service.LineType_Wmqy, ts_code, startDate, endDate)
+	wmqyLineMap, err := svc.FindQExpress(service.LineType_Wmqy, tsCode, startDate, endDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -177,28 +215,37 @@ func (this *WmqyLineController) FindQExpress(ctx iris.Context) {
 		isWinsorize = v.(bool)
 	}
 	qps := svc.StdMap(wmqyLineMap, service.StdType_MinMax, isWinsorize)
-	ctx.JSON(qps)
+	err = ctx.JSON(qps)
+	if err != nil {
+		return
+	}
 }
 
-func (this *WmqyLineController) FindQForecast(ctx iris.Context) {
+func (ctl *WmqyLineController) FindQForecast(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := service.GetQPerformanceService()
-	var ts_code string
+	var tsCode string
 	var startDate string
 	var endDate string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err = ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
 	v, ok = params["startDate"]
@@ -219,9 +266,12 @@ func (this *WmqyLineController) FindQForecast(ctx iris.Context) {
 			startDate, _ = stock.AddYear(today, -term)
 		}
 	}
-	wmqyLineMap, err := svc.FindQForecast(service.LineType_Wmqy, ts_code, startDate, endDate)
+	wmqyLineMap, err := svc.FindQForecast(service.LineType_Wmqy, tsCode, startDate, endDate)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -232,7 +282,10 @@ func (this *WmqyLineController) FindQForecast(ctx iris.Context) {
 		isWinsorize = v.(bool)
 	}
 	qps := svc.StdMap(wmqyLineMap, service.StdType_MinMax, isWinsorize)
-	ctx.JSON(qps)
+	err = ctx.JSON(qps)
+	if err != nil {
+		return
+	}
 }
 
 type WmqyLinePara struct {
@@ -247,67 +300,98 @@ type WmqyLinePara struct {
 	LineType  int    `json:"line_type,omitempty"`
 }
 
-func (this *WmqyLineController) FindPreceding(ctx iris.Context) {
+func (ctl *WmqyLineController) FindPreceding(ctx iris.Context) {
 	wmqylinePara := &WmqyLinePara{}
 	err := ctx.ReadJSON(&wmqylinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	if wmqylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	if wmqylinePara.LineType == 0 {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("LineType is 0"))
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("LineType is 0"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.WmqyLineService)
+	svc := ctl.BaseService.(*service.WmqyLineService)
 	ps, count, err := svc.FindPreceding(wmqylinePara.TsCode, wmqylinePara.LineType, wmqylinePara.EndDate, wmqylinePara.From, wmqylinePara.Limit, wmqylinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-func (this *WmqyLineController) FindFollowing(ctx iris.Context) {
+func (ctl *WmqyLineController) FindFollowing(ctx iris.Context) {
 	wmqylinePara := &WmqyLinePara{}
 	err := ctx.ReadJSON(&wmqylinePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	if wmqylinePara.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	if wmqylinePara.LineType == 0 {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("LineType is 0"))
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("LineType is 0"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.WmqyLineService)
+	svc := ctl.BaseService.(*service.WmqyLineService)
 	ps, count, err := svc.FindFollowing(wmqylinePara.TsCode, wmqylinePara.LineType, wmqylinePara.StartDate, wmqylinePara.EndDate, wmqylinePara.From, wmqylinePara.Limit, wmqylinePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-/**
+/*
+*
 注册bean管理器，注册序列
 */
 func init() {

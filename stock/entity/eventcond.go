@@ -4,9 +4,7 @@ import (
 	"github.com/curltech/go-colla-core/entity"
 )
 
-/**
-代表某只股票的发生了某种事件的条件满足的细节
-*/
+// EventCond 代表某只股票的发生了某种事件的条件满足的细节
 type EventCond struct {
 	entity.BaseEntity `xorm:"extends"`
 	TsCode            string  `xorm:"index notnull" json:"ts_code,omitempty"`

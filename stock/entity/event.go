@@ -5,9 +5,7 @@ import (
 	"time"
 )
 
-/**
-事件定义
-*/
+// Event 事件定义
 type Event struct {
 	entity.BaseEntity `xorm:"extends"`
 	EventCode         string     `json:"event_code,omitempty"`

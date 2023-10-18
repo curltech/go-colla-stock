@@ -2,9 +2,7 @@ package entity
 
 import "github.com/curltech/go-colla-core/entity"
 
-/**
-周月季度年数据
-*/
+// WmqyLine 周月季度年数据
 type WmqyLine struct {
 	entity.BaseEntity `xorm:"extends"`
 	TsCode            string  `xorm:"varchar(255) index notnull" json:"ts_code"` // str	股票代码

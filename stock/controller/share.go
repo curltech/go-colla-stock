@@ -10,27 +10,28 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// ShareController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type ShareController struct {
 	controller.BaseController
 }
 
 var shareController *ShareController
 
-func (this *ShareController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *ShareController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.Share, 0)
 	err := message.Unmarshal(json, &entities)
 
 	return &entities, err
 }
 
-func (this *ShareController) GetMine(ctx iris.Context) {
+func (ctl *ShareController) GetMine(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -41,26 +42,38 @@ func (this *ShareController) GetMine(ctx iris.Context) {
 	}
 	if tsCode == "" {
 		userShares := make([]interface{}, 0)
-		ctx.JSON(userShares)
+		err = ctx.JSON(userShares)
+		if err != nil {
+			return
+		}
 		return
 	}
-	svc := this.BaseService.(*service.ShareService)
+	svc := ctl.BaseService.(*service.ShareService)
 	userShares, err := svc.GetShares(tsCode)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	ctx.JSON(userShares)
+	err = ctx.JSON(userShares)
+	if err != nil {
+		return
+	}
 
 	return
 }
 
-func (this *ShareController) Search(ctx iris.Context) {
+func (ctl *ShareController) Search(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -69,57 +82,67 @@ func (this *ShareController) Search(ctx iris.Context) {
 	if ok && v != nil {
 		keyword = v.(string)
 	}
-	svc := this.BaseService.(*service.ShareService)
+	svc := ctl.BaseService.(*service.ShareService)
 	shares, err := svc.Search(keyword, 0, 0)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	ctx.JSON(shares)
+	err = ctx.JSON(shares)
+	if err != nil {
+		return
+	}
 
 	return
 }
 
-func (this *ShareController) UpdateSector(ctx iris.Context) {
+func (ctl *ShareController) UpdateSector(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	var tscode string
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok && v != nil {
-		tscode = v.(string)
+		tsCode = v.(string)
 	}
 	var sector string
 	v, ok = params["sector"]
 	if ok && v != nil {
 		sector = v.(string)
 	}
-	if tscode == "" || sector == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("NoTsCodeOrSector"))
+	if tsCode == "" || sector == "" {
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("NoTsCodeOrSector"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.ShareService)
-	svc.UpdateSector(tscode, sector)
+	svc := ctl.BaseService.(*service.ShareService)
+	svc.UpdateSector(tsCode, sector)
 
 	return
 }
 
-func (this *ShareController) UpdateShares(ctx iris.Context) {
-	svc := this.BaseService.(*service.ShareService)
+func (ctl *ShareController) UpdateShares(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.ShareService)
 	svc.UpdateShares()
 
 	return
 }
 
-/**
-注册bean管理器，注册序列
-*/
+// 注册bean管理器，注册序列
 func init() {
 	shareController = &ShareController{
 		BaseController: controller.BaseController{

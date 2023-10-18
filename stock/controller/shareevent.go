@@ -11,27 +11,29 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// ShareEventController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，
+// 因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type ShareEventController struct {
 	controller.BaseController
 }
 
 var shareEventController *ShareEventController
 
-func (this *ShareEventController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *ShareEventController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.ShareEvent, 0)
 	err := message.Unmarshal(json, &entities)
 
 	return &entities, err
 }
 
-func (this *ShareEventController) GetMine(ctx iris.Context) {
+func (ctl *ShareEventController) GetMine(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -42,16 +44,25 @@ func (this *ShareEventController) GetMine(ctx iris.Context) {
 	}
 	userName := rbac.GetUserController().GetCurrentUserName(ctx)
 	if userName != "" {
-		svc := this.BaseService.(*service.ShareEventService)
+		svc := ctl.BaseService.(*service.ShareEventService)
 		userShares, err := svc.GetMine(userName, tsCode)
 		if err != nil {
-			ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+			err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+			if err != nil {
+				return
+			}
 
 			return
 		}
-		ctx.JSON(userShares)
+		err = ctx.JSON(userShares)
+		if err != nil {
+			return
+		}
 	} else {
-		ctx.StopWithJSON(iris.StatusUnauthorized, errors.New("UserName is not exist"))
+		err = ctx.StopWithJSON(iris.StatusUnauthorized, errors.New("UserName is not exist"))
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -59,7 +70,8 @@ func (this *ShareEventController) GetMine(ctx iris.Context) {
 	return
 }
 
-/**
+/*
+*
 注册bean管理器，注册序列
 */
 func init() {

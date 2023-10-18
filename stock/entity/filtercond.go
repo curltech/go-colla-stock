@@ -4,9 +4,7 @@ import (
 	"github.com/curltech/go-colla-core/entity"
 )
 
-/**
-股票发生的事件
-*/
+// FilterCond 股票发生的事件
 type FilterCond struct {
 	entity.BaseEntity `xorm:"extends"`
 	CondCode          string  `json:"cond_code,omitempty"`

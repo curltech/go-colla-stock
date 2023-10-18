@@ -9,55 +9,68 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// EventCondController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type EventCondController struct {
 	controller.BaseController
 }
 
 var eventCondController *EventCondController
 
-func (this *EventCondController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *EventCondController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.EventCond, 0)
 	err := message.Unmarshal(json, &entities)
 
 	return &entities, err
 }
 
-func (this *EventCondController) RefreshEventCond(ctx iris.Context) {
-	svc := this.BaseService.(*service.EventCondService)
+func (ctl *EventCondController) RefreshEventCond(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.EventCondService)
 	err := svc.RefreshEventCond()
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (this *EventCondController) GetUpdateEventCond(ctx iris.Context) {
+func (ctl *EventCondController) GetUpdateEventCond(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.EventCondService)
-	var ts_code string
+	svc := ctl.BaseService.(*service.EventCondService)
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code, _ = v.(string)
+		tsCode, _ = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err = ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps := svc.GetUpdateEventCond(ts_code)
+	ps := svc.GetUpdateEventCond(tsCode)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
 type EventCondPara struct {
@@ -73,53 +86,75 @@ type EventCondPara struct {
 	Count     int64  `json:"count"`
 }
 
-func (this *EventCondController) Search(ctx iris.Context) {
+func (ctl *EventCondController) Search(ctx iris.Context) {
 	param := &EventCondPara{}
 	err := ctx.ReadJSON(param)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	if param.TsCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.EventCondService)
+	svc := ctl.BaseService.(*service.EventCondService)
 	es, count, err := svc.Search(param.TsCode, param.StartDate, param.EndDate, param.EventCode, param.EventType, param.Orderby, param.From, param.Limit, param.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
-	result := make(map[string]interface{}, 0)
+	result := make(map[string]interface{})
 	result["data"] = es
 	result["count"] = count
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-func (this *EventCondController) FindGroupby(ctx iris.Context) {
+func (ctl *EventCondController) FindGroupby(ctx iris.Context) {
 	param := &EventCondPara{}
 	err := ctx.ReadJSON(param)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.EventCondService)
+	svc := ctl.BaseService.(*service.EventCondService)
 	es, count, err := svc.FindGroupby(param.TsCode, param.StartDate, param.EndDate, param.EventCode, param.EventType, param.Orderby, param.From, param.Limit, param.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
-	result := make(map[string]interface{}, 0)
+	result := make(map[string]interface{})
 	result["data"] = es
 	result["count"] = count
 
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-/**
+/*
+*
 注册bean管理器，注册序列
 */
 func init() {

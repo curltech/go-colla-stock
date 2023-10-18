@@ -4,9 +4,7 @@ import (
 	"github.com/curltech/go-colla-core/entity"
 )
 
-/**
-代表某只股票的发生了某种事件，这种事件关于季报，买入卖出机会
-*/
+// ShareEvent 代表某只股票的发生了某种事件，这种事件关于季报，买入卖出机会
 type ShareEvent struct {
 	entity.BaseEntity `xorm:"extends"`
 	TsCode            string  `json:"ts_code,omitempty"`
