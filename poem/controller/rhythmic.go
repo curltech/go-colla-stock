@@ -8,27 +8,21 @@ import (
 	"github.com/curltech/go-colla-web/controller"
 )
 
-/*
-*
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// RhythmicController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type RhythmicController struct {
 	controller.BaseController
 }
 
 var rhythmicController *RhythmicController
 
-func (this *RhythmicController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *RhythmicController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.Rhythmic, 0)
 	err := message.Unmarshal(json, &entities)
 
 	return &entities, err
 }
 
-/*
-*
-注册bean管理器，注册序列
-*/
+// 注册bean管理器，注册序列
 func init() {
 	rhythmicController = &RhythmicController{
 		BaseController: controller.BaseController{

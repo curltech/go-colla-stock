@@ -7,13 +7,10 @@ import (
 	"github.com/curltech/go-colla-core/util/json"
 	"github.com/curltech/go-colla-core/util/message"
 	"github.com/curltech/go-colla-stock/poem/entity"
-	"io/ioutil"
+	"os"
 )
 
-/*
-*
-同步表结构，服务继承基本服务的方法
-*/
+// AuthorService 同步表结构，服务继承基本服务的方法
 type AuthorService struct {
 	service.OrmBaseService
 }
@@ -24,24 +21,24 @@ func GetAuthorService() *AuthorService {
 	return authorService
 }
 
-func (this *AuthorService) GetSeqName() string {
+func (svc *AuthorService) GetSeqName() string {
 	return seqname
 }
 
-func (this *AuthorService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.Author{}
+func (svc *AuthorService) NewEntity(data []byte) (interface{}, error) {
+	author := &entity.Author{}
 	if data == nil {
-		return entity, nil
+		return author, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, author)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return author, err
 }
 
-func (this *AuthorService) NewEntities(data []byte) (interface{}, error) {
+func (svc *AuthorService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.Author, 0)
 	if data == nil {
 		return &entities, nil
@@ -54,8 +51,8 @@ func (this *AuthorService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (this *AuthorService) ParseFile(src string) error {
-	content, err := ioutil.ReadFile(src)
+func (svc *AuthorService) ParseFile(src string) error {
+	content, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
@@ -69,12 +66,15 @@ func (this *AuthorService) ParseFile(src string) error {
 		author := &entity.Author{Name: a["name"], Notes: a["description"]}
 		authors = append(authors, author)
 	}
-	this.save(authors)
+	err = svc.save(authors)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (this *AuthorService) save(authors []*entity.Author) error {
+func (svc *AuthorService) save(authors []*entity.Author) error {
 	batch := 1000
 	as := make([]interface{}, 0)
 	for i := 0; i < len(authors); i = i + batch {
@@ -84,7 +84,7 @@ func (this *AuthorService) save(authors []*entity.Author) error {
 				as = append(as, poem)
 			}
 		}
-		_, err := this.Insert(as...)
+		_, err := svc.Insert(as...)
 		if err != nil {
 			logger.Sugar.Errorf("Insert database error:%v", err.Error())
 			return err
@@ -98,7 +98,10 @@ func (this *AuthorService) save(authors []*entity.Author) error {
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.Author))
+	err := service.GetSession().Sync(new(entity.Author))
+	if err != nil {
+		return
+	}
 	authorService.OrmBaseService.GetSeqName = authorService.GetSeqName
 	authorService.OrmBaseService.FactNewEntity = authorService.NewEntity
 	authorService.OrmBaseService.FactNewEntities = authorService.NewEntities

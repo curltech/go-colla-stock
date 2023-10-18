@@ -7,10 +7,7 @@ import (
 	"github.com/curltech/go-colla-stock/poem/entity"
 )
 
-/*
-*
-同步表结构，服务继承基本服务的方法
-*/
+// RhythmicService 同步表结构，服务继承基本服务的方法
 type RhythmicService struct {
 	service.OrmBaseService
 }
@@ -21,24 +18,24 @@ func GetRhythmicService() *RhythmicService {
 	return rhythmicService
 }
 
-func (this *RhythmicService) GetSeqName() string {
+func (svc *RhythmicService) GetSeqName() string {
 	return seqname
 }
 
-func (this *RhythmicService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.Rhythmic{}
+func (svc *RhythmicService) NewEntity(data []byte) (interface{}, error) {
+	rhythmic := &entity.Rhythmic{}
 	if data == nil {
-		return entity, nil
+		return rhythmic, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, rhythmic)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return rhythmic, err
 }
 
-func (this *RhythmicService) NewEntities(data []byte) (interface{}, error) {
+func (svc *RhythmicService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.Rhythmic, 0)
 	if data == nil {
 		return &entities, nil
@@ -52,7 +49,10 @@ func (this *RhythmicService) NewEntities(data []byte) (interface{}, error) {
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.Rhythmic))
+	err := service.GetSession().Sync(new(entity.Rhythmic))
+	if err != nil {
+		return
+	}
 	rhythmicService.OrmBaseService.GetSeqName = rhythmicService.GetSeqName
 	rhythmicService.OrmBaseService.FactNewEntity = rhythmicService.NewEntity
 	rhythmicService.OrmBaseService.FactNewEntities = rhythmicService.NewEntities
