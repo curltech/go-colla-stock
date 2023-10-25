@@ -225,6 +225,33 @@ func (svc *DayLineService) findMaxMaTradeDate(tsCode string, fieldname string) (
 	return nil, nil
 }
 
+// 查询最新的日期的股票日线数据
+func (svc *DayLineService) FindNewest(tsCode string) ([]*entity.DayLine, error) {
+	tscode := "000001"
+	if tsCode != "" {
+		tscode = tsCode
+	}
+	dayLines, err := svc.findMaxTradeDate(tscode)
+	if err != nil {
+		return nil, err
+	}
+	if dayLines == nil || len(dayLines) == 0 || dayLines[0] == nil {
+		return nil, errors.New("NoTradeDate")
+	}
+	tradeDate := dayLines[0].TradeDate
+	dayLines = make([]*entity.DayLine, 0)
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
+	conds = conds + " and tradedate=?"
+	paras = append(paras, tradeDate)
+
+	err = svc.Find(&dayLines, nil, "", 0, 0, conds, paras...)
+	if err != nil {
+		return nil, err
+	}
+
+	return dayLines, nil
+}
+
 func (svc *DayLineService) Search(tsCode string, industry string, sector string, startDate int64, endDate int64, orderby string, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
 	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	dayLines := make([]*entity.DayLine, 0)

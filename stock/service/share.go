@@ -227,21 +227,6 @@ func (svc *ShareService) UpdatePinYin() {
 	}
 }
 
-func getPinYin(name string) string {
-	pinyinMap := GetCachePinYin()
-	cs := []rune(name)
-	l := len(cs)
-	py := ""
-	for i := 0; i <= l-1; i++ {
-		c := string(cs[i : i+1])
-		pinyin, ok := pinyinMap[c]
-		if ok {
-			py += pinyin.FirstChar
-		}
-	}
-	return py
-}
-
 func (svc *ShareService) UpdateShares() {
 	paras := tushareSvc.ShareRequest{}
 	shares, err := tushareSvc.StockBasic(paras)
@@ -298,7 +283,7 @@ var cacheTsCodes []string = nil
 
 func (svc *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
 	if shareCache == nil {
-		shareCache = make(map[string]*entity.Share)
+		shareCache = make(map[string]*entity.Share, 0)
 		shares := make([]*entity.Share, 0)
 		err := svc.Find(&shares, nil, "tscode", 0, 0, "")
 		if err != nil {
@@ -319,6 +304,21 @@ func (svc *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
 func (svc *ShareService) RefreshCacheShare() {
 	shareCache = nil
 	cacheTsCodes = nil
+}
+
+func getPinYin(name string) string {
+	pinyinMap := GetCachePinYin()
+	cs := []rune(name)
+	l := len(cs)
+	py := ""
+	for i := 0; i <= l-1; i++ {
+		c := string(cs[i : i+1])
+		pinyin, ok := pinyinMap[c]
+		if ok {
+			py += pinyin.FirstChar
+		}
+	}
+	return py
 }
 
 func init() {

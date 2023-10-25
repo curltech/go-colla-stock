@@ -384,6 +384,41 @@ func (ctl *DayLineController) Search(ctx iris.Context) {
 	}
 }
 
+// FindNewest 查询最新的日期的股票日线数据
+func (ctl *DayLineController) FindNewest(ctx iris.Context) {
+	dayLinePara := &DayLinePara{}
+	err := ctx.ReadJSON(&dayLinePara)
+	if err != nil {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+
+		return
+	}
+	if dayLinePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("tscode is nil"))
+		if err != nil {
+			return
+		}
+
+		return
+	}
+	svc := ctl.BaseService.(*service.DayLineService)
+	ps, err := svc.FindNewest(dayLinePara.TsCode)
+	if err != nil {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+		return
+	}
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
+}
+
 func (ctl *DayLineController) FindPreceding(ctx iris.Context) {
 	dayLinePara := &DayLinePara{}
 	err := ctx.ReadJSON(&dayLinePara)
