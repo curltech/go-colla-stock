@@ -226,7 +226,7 @@ func (svc *DayLineService) findMaxMaTradeDate(tsCode string, fieldname string) (
 }
 
 // 查询最新的日期的股票日线数据
-func (svc *DayLineService) FindNewest(tsCode string) ([]*entity.DayLine, error) {
+func (svc *DayLineService) FindLatest(tsCode string) ([]*entity.DayLine, error) {
 	tscode := "000001"
 	if tsCode != "" {
 		tscode = tsCode

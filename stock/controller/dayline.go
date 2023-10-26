@@ -385,7 +385,7 @@ func (ctl *DayLineController) Search(ctx iris.Context) {
 }
 
 // FindNewest 查询最新的日期的股票日线数据
-func (ctl *DayLineController) FindNewest(ctx iris.Context) {
+func (ctl *DayLineController) FindLatest(ctx iris.Context) {
 	dayLinePara := &DayLinePara{}
 	err := ctx.ReadJSON(&dayLinePara)
 	if err != nil {
@@ -405,7 +405,7 @@ func (ctl *DayLineController) FindNewest(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.DayLineService)
-	ps, err := svc.FindNewest(dayLinePara.TsCode)
+	ps, err := svc.FindLatest(dayLinePara.TsCode)
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
