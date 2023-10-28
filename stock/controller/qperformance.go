@@ -10,7 +10,8 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
+/*
+*
 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 */
 type QPerformanceController struct {
@@ -19,7 +20,7 @@ type QPerformanceController struct {
 
 var qperformanceController *QPerformanceController
 
-func (this *QPerformanceController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *QPerformanceController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.QPerformance, 0)
 	err := message.Unmarshal(json, &entities)
 
@@ -44,49 +45,70 @@ type QPerformancePara struct {
 	Winsorize     bool     `json:"winsorize,omitempty"`
 }
 
-func (this *QPerformanceController) Search(ctx iris.Context) {
+func (ctl *QPerformanceController) Search(ctx iris.Context) {
 	qperformancePara := &QPerformancePara{}
 	err := ctx.ReadJSON(&qperformancePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.QPerformanceService)
+	svc := ctl.BaseService.(*service.QPerformanceService)
 	ps, count, err := svc.Search(qperformancePara.Keyword, qperformancePara.TsCode, qperformancePara.Terms, qperformancePara.SourceOptions, qperformancePara.StartDate, qperformancePara.EndDate, qperformancePara.Orderby, qperformancePara.From, qperformancePara.Limit, qperformancePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-func (this *QPerformanceController) FindStdQPerformance(ctx iris.Context) {
+func (ctl *QPerformanceController) FindStdQPerformance(ctx iris.Context) {
 	qperformancePara := &QPerformancePara{}
 	err := ctx.ReadJSON(&qperformancePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.QPerformanceService)
+	svc := ctl.BaseService.(*service.QPerformanceService)
 	ps, err := svc.FindStdQPerformance(qperformancePara.TsCode, qperformancePara.Terms, qperformancePara.StartDate, qperformancePara.EndDate, service.StdType(qperformancePara.StdType), qperformancePara.Winsorize)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
-func (this *QPerformanceController) FindStat(ctx iris.Context) {
+func (ctl *QPerformanceController) FindStat(ctx iris.Context) {
 	qperformancePara := &QPerformancePara{}
 	err := ctx.ReadJSON(&qperformancePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -100,14 +122,20 @@ func (this *QPerformanceController) FindStat(ctx iris.Context) {
 
 	ps := svc.FindAllQStatBySql(qperformancePara.TsCode, startDate, qperformancePara.EndDate)
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
-func (this *QPerformanceController) FindPercentRank(ctx iris.Context) {
+func (ctl *QPerformanceController) FindPercentRank(ctx iris.Context) {
 	qperformancePara := &QPerformancePara{}
 	err := ctx.ReadJSON(&qperformancePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
@@ -120,75 +148,111 @@ func (this *QPerformanceController) FindPercentRank(ctx iris.Context) {
 	svc := service.GetQPerformanceService()
 	ps, err := svc.FindPercentRank(qperformancePara.RankType, qperformancePara.TsCode, qperformancePara.TradeDate, startDate, qperformancePara.EndDate, qperformancePara.From, qperformancePara.Limit, qperformancePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
-func (this *QPerformanceController) RefreshQPerformance(ctx iris.Context) {
-	svc := this.BaseService.(*service.QPerformanceService)
+func (ctl *QPerformanceController) RefreshQPerformance(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.QPerformanceService)
 	err := svc.RefreshWmqyQPerformance("")
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 	err = svc.RefreshDayQPerformance()
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (this *QPerformanceController) GetUpdateWmqyQPerformance(ctx iris.Context) {
+func (ctl *QPerformanceController) GetUpdateWmqyQPerformance(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.QPerformanceService)
-	var ts_code string
+	svc := ctl.BaseService.(*service.QPerformanceService)
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.GetUpdateWmqyQPerformance(ts_code, "")
+	ps, err := svc.GetUpdateWmqyQPerformance(tsCode, "")
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
-func (this *QPerformanceController) GetUpdateDayQPerformance(ctx iris.Context) {
+func (ctl *QPerformanceController) GetUpdateDayQPerformance(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.QPerformanceService)
-	var ts_code string
+	svc := ctl.BaseService.(*service.QPerformanceService)
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.GetUpdateDayQPerformance(ts_code)
+	ps, err := svc.GetUpdateDayQPerformance(tsCode)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
 /**

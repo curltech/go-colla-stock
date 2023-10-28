@@ -95,7 +95,8 @@ func (this *QStatService) Search(keyword string, terms []int, sourceOptions []st
 	return qstats, count, nil
 }
 
-/**
+/*
+*
 查询股票季度业绩统计数据
 */
 func (this *QStatService) FindQStat(ts_code string, terms []int, source string, sourceName string) (map[string]map[int][]interface{}, error) {
@@ -136,7 +137,8 @@ func (this *QStatService) FindQStat(ts_code string, terms []int, source string, 
 	return qpMap, nil
 }
 
-/**
+/*
+*
 计算股票季度业绩统计数据中位数，最大值和最小值，并返回结果，方便进行去极值和标准化
 */
 func (this *QStatService) FindQStatMedian() (map[string]*entity.QStat, error) {
@@ -192,7 +194,8 @@ func (this *QStatService) FindQStatMedian() (map[string]*entity.QStat, error) {
 	return medianMap, nil
 }
 
-/**
+/*
+*
 删除股票季度业绩统计数据
 */
 func (this *QStatService) deleteQStat(ts_code string) error {
@@ -206,7 +209,8 @@ func (this *QStatService) deleteQStat(ts_code string) error {
 	return nil
 }
 
-/**
+/*
+*
 对某个统计指标计算minmax标准化
 */
 func (this *QStatService) MinmaxStd(q *entity.QStat, fieldname string) float64 {
@@ -261,7 +265,8 @@ func (this *QStatService) MinmaxStd(q *entity.QStat, fieldname string) float64 {
 	return (val - minVal) / (maxVal - minVal)
 }
 
-/**
+/*
+*
 计算股票所有统计数据的Min，Max，并保存
 */
 func (this *QStatService) GetQStatMedian() error {
@@ -279,14 +284,15 @@ func (this *QStatService) GetQStatMedian() error {
 	return nil
 }
 
-/**
+/*
+*
 刷新所有股票的季度业绩统计数据
 */
 func (this *QStatService) RefreshQStat() error {
 	processLog := GetProcessLogService().StartLog("qstat", "RefreshQStat", "")
 	routinePool := thread.CreateRoutinePool(10, this.AsyncUpdateQStat, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
+	ts_codes, _ := GetCacheShare()
 	for _, ts_code := range ts_codes {
 		para := make([]interface{}, 0)
 		para = append(para, ts_code)
@@ -307,7 +313,8 @@ func (this *QStatService) AsyncUpdateQStat(para interface{}) {
 	this.GetUpdateQStat(tscode)
 }
 
-/**
+/*
+*
 更新股票季度业绩统计数据，并返回结果
 */
 func (this *QStatService) GetUpdateQStat(tscode string) ([]interface{}, error) {
@@ -328,7 +335,8 @@ func (this *QStatService) GetUpdateQStat(tscode string) ([]interface{}, error) {
 	return ps, err
 }
 
-/**
+/*
+*
 通过内存更新股票季度业绩统计数据，并返回结果
 */
 func (this *QStatService) UpdateQStat(tscode string, terms []int) ([]interface{}, error) {
@@ -435,7 +443,8 @@ func (this *QStatService) findPercentRank(rankType string, tscode string, qterm 
 	return qstats, nil
 }
 
-/**
+/*
+*
 通过内存计算股票季度业绩全部统计数据，并返回结果，原始数据降序排列
 */
 func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, qtermMap map[string]map[int]*QTerm) map[string][]interface{} {
@@ -614,7 +623,7 @@ func (this *QStatService) toQStat(val interface{}, qterm *QTerm) *entity.QStat {
 	return qstat
 }
 
-//原始数据降序排列
+// 原始数据降序排列
 func (this *QStatService) FindAcc(ps []interface{}, qterm *QTerm, pre *entity.QPerformance) *entity.QStat {
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QPerformance{})
 	if pre == nil {
@@ -658,7 +667,8 @@ func (this *QStatService) FindAcc(ps []interface{}, qterm *QTerm, pre *entity.QP
 	return qs
 }
 
-/**
+/*
+*
 通过数据库sql更新股票季度业绩统计数据，并返回结果
 */
 func (this *QStatService) UpdateQStatBySql(tscode string, term int) ([]interface{}, error) {

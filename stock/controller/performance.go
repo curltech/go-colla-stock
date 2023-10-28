@@ -9,55 +9,68 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// PerformanceController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type PerformanceController struct {
 	controller.BaseController
 }
 
 var performanceController *PerformanceController
 
-func (this *PerformanceController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *PerformanceController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.Performance, 0)
 	err := message.Unmarshal(json, &entities)
 
 	return &entities, err
 }
 
-func (this *PerformanceController) RefreshPerformance(ctx iris.Context) {
-	svc := this.BaseService.(*service.PerformanceService)
+func (ctl *PerformanceController) RefreshPerformance(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.PerformanceService)
 	err := svc.RefreshPerformance()
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (this *PerformanceController) GetUpdatePerformance(ctx iris.Context) {
+func (ctl *PerformanceController) GetUpdatePerformance(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.PerformanceService)
-	var ts_code string
+	svc := ctl.BaseService.(*service.PerformanceService)
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.GetUpdatePerformance(ts_code)
+	ps, err := svc.GetUpdatePerformance(tsCode)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
 type PerformancePara struct {
@@ -70,70 +83,66 @@ type PerformancePara struct {
 	Count        int64  `json:"count"`
 }
 
-func (this *PerformanceController) FindLatest(ctx iris.Context) {
+func (ctl *PerformanceController) FindLatest(ctx iris.Context) {
 	param := &PerformancePara{}
 	err := ctx.ReadJSON(param)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.PerformanceService)
+	svc := ctl.BaseService.(*service.PerformanceService)
 	es, count, err := svc.FindLatest(param.SecurityCode, param.StartDate, param.Orderby, param.From, param.Limit, param.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{}, 0)
 	result["data"] = es
 	result["count"] = count
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-func (this *PerformanceController) FindByQDate(ctx iris.Context) {
+func (ctl *PerformanceController) FindByQDate(ctx iris.Context) {
 	param := &PerformancePara{}
 	err := ctx.ReadJSON(param)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	if param.SecurityCode == "" {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
-
-		return
-	}
-	svc := this.BaseService.(*service.PerformanceService)
-	es, err := svc.FindByQDate(param.SecurityCode, param.StartDate, param.EndDate, param.Orderby)
+	svc := ctl.BaseService.(*service.PerformanceService)
+	es, count, err := svc.FindByQDate(param.SecurityCode, param.StartDate, param.EndDate, param.Orderby, param.From, param.Limit, param.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
-		return
-	}
-	ctx.JSON(es)
-}
-
-func (this *PerformanceController) Search(ctx iris.Context) {
-	param := &PerformancePara{}
-	err := ctx.ReadJSON(param)
-	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
-
-		return
-	}
-	svc := this.BaseService.(*service.PerformanceService)
-	es, count, err := svc.Search(param.SecurityCode, param.StartDate, param.EndDate, param.Orderby, param.From, param.Limit, param.Count)
-	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{}, 0)
 	result["data"] = es
 	result["count"] = count
-
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-/**
+/*
+*
 注册bean管理器，注册序列
 */
 func init() {

@@ -285,7 +285,7 @@ func (svc *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
 	if shareCache == nil {
 		shareCache = make(map[string]*entity.Share, 0)
 		shares := make([]*entity.Share, 0)
-		err := svc.Find(&shares, nil, "tscode", 0, 0, "")
+		err := GetShareService().Find(&shares, nil, "tscode", 0, 0, "")
 		if err != nil {
 			logger.Sugar.Errorf("Error: %s", err.Error())
 		}

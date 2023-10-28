@@ -59,7 +59,7 @@ type PerformanceResponseResult struct {
 	Result *PerformanceResponseData `json:"result,omitempty"`
 }
 
-func (this *PerformanceService) updatePerformance(securityCode string, qDate string, page int) (*PerformanceResponseResult, []interface{}, error) {
+func (svc *PerformanceService) updatePerformance(securityCode string, qDate string, page int) (*PerformanceResponseResult, []interface{}, error) {
 	params := eastmoney.CreateRequestParam()
 	params.St = "SECURITY_CODE,REPORTDATE"
 	params.Sr = "1,1"
@@ -102,11 +102,11 @@ func (this *PerformanceService) updatePerformance(securityCode string, qDate str
 		p := &entity.Performance{}
 		err = collection.MapToStruct(m, p)
 		if err == nil {
-			go this.updateShare(p)
+			go svc.updateShare(p)
 			ps = append(ps, p)
 		}
 	}
-	_, err = this.Insert(ps...)
+	_, err = svc.Insert(ps...)
 	if err != nil {
 		logger.Sugar.Errorf("Error: %s", err.Error())
 		return r, ps, err
@@ -114,7 +114,7 @@ func (this *PerformanceService) updatePerformance(securityCode string, qDate str
 	return r, ps, err
 }
 
-func (this *PerformanceService) updateShare(performance *entity.Performance) error {
+func (svc *PerformanceService) updateShare(performance *entity.Performance) error {
 	cond := &entity.Share{TsCode: performance.SecurityCode}
 	exist, err := GetShareService().Get(cond, false, "", "")
 	if err != nil {
@@ -148,9 +148,9 @@ func (this *PerformanceService) updateShare(performance *entity.Performance) err
 	return nil
 }
 
-func (this *PerformanceService) RefreshPerformance() error {
+func (svc *PerformanceService) RefreshPerformance() error {
 	processLog := GetProcessLogService().StartLog("performance", "RefreshPerformance", "")
-	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, this.AsyncUpdatePerformance, nil)
+	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdatePerformance, nil)
 	defer routinePool.Release()
 	ts_codes, _ := GetShareService().GetCacheShare()
 	for _, securityCode := range ts_codes {
@@ -161,14 +161,14 @@ func (this *PerformanceService) RefreshPerformance() error {
 	return nil
 }
 
-func (this *PerformanceService) AsyncUpdatePerformance(para interface{}) {
+func (svc *PerformanceService) AsyncUpdatePerformance(para interface{}) {
 	securityCode := para.(string)
-	this.GetUpdatePerformance(securityCode)
+	svc.GetUpdatePerformance(securityCode)
 }
 
-func (this *PerformanceService) GetUpdatePerformance(securityCode string) ([]interface{}, error) {
+func (svc *PerformanceService) GetUpdatePerformance(securityCode string) ([]interface{}, error) {
 	//processLog := GetProcessLogService().StartLog("performance", "GetUpdatePerformance", securityCode)
-	ps, err := this.UpdatePerformance(securityCode)
+	ps, err := svc.UpdatePerformance(securityCode)
 	if err != nil {
 		//GetProcessLogService().EndLog(processLog, "", err.Error())
 		return ps, err
@@ -176,9 +176,9 @@ func (this *PerformanceService) GetUpdatePerformance(securityCode string) ([]int
 	return ps, err
 }
 
-func (this *PerformanceService) UpdatePerformance(securityCode string) ([]interface{}, error) {
-	qdate, _ := this.findMaxQDate(securityCode)
-	result, ps, err := this.updatePerformance(securityCode, qdate, 1)
+func (svc *PerformanceService) UpdatePerformance(securityCode string) ([]interface{}, error) {
+	qdate, _ := svc.findMaxQDate(securityCode)
+	result, ps, err := svc.updatePerformance(securityCode, qdate, 1)
 	if err != nil {
 		//logger.Sugar.Errorf("Error: %s", err.Error())
 		return nil, err
@@ -188,7 +188,7 @@ func (this *PerformanceService) UpdatePerformance(securityCode string) ([]interf
 		return nil, err
 	}
 	for i := 2; i <= result.Result.Pages; i++ {
-		this.updatePerformance(securityCode, qdate, i)
+		svc.updatePerformance(securityCode, qdate, i)
 	}
 	GetQPerformanceService().GetUpdateWmqyQPerformance(securityCode, qdate)
 
