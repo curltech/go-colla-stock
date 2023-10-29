@@ -45,6 +45,35 @@ type QPerformancePara struct {
 	Winsorize     bool     `json:"winsorize,omitempty"`
 }
 
+func (ctl *QPerformanceController) FindByQDate(ctx iris.Context) {
+	param := &QPerformancePara{}
+	err := ctx.ReadJSON(param)
+	if err != nil {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+
+		return
+	}
+	svc := ctl.BaseService.(*service.QPerformanceService)
+	es, count, err := svc.FindByQDate(param.TsCode, param.StartDate, param.EndDate, param.Orderby, param.From, param.Limit, param.Count)
+	if err != nil {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+		return
+	}
+	result := make(map[string]interface{}, 0)
+	result["data"] = es
+	result["count"] = count
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
+}
+
 func (ctl *QPerformanceController) Search(ctx iris.Context) {
 	qperformancePara := &QPerformancePara{}
 	err := ctx.ReadJSON(&qperformancePara)

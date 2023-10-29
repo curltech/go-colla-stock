@@ -10,7 +10,7 @@ import (
 	"github.com/curltech/go-colla-core/util/reflect"
 	"github.com/curltech/go-colla-core/util/thread"
 	"github.com/curltech/go-colla-stock/stock"
-	entity "github.com/curltech/go-colla-stock/stock/entity"
+	"github.com/curltech/go-colla-stock/stock/entity"
 	"math"
 	"strings"
 )
@@ -53,6 +53,38 @@ func (svc *QPerformanceService) NewEntities(data []byte) (interface{}, error) {
 	}
 
 	return &entities, err
+}
+
+func (svc *QPerformanceService) FindByQDate(tsCode string, startDate string, endDate string, orderby string, from int, limit int, count int64) ([]*entity.QPerformance, int64, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
+	if startDate != "" {
+		conds = conds + " and qdate>=?"
+		paras = append(paras, startDate)
+	}
+	if endDate != "" {
+		conds = conds + " and qdate<=?"
+		paras = append(paras, endDate)
+	}
+	var err error
+	condiBean := &entity.QPerformance{}
+	if count == 0 {
+		count, err = svc.Count(condiBean, conds, paras...)
+		if err != nil {
+			return nil, count, err
+		}
+	}
+	if orderby == "" {
+		orderby = "tscode,qdate desc"
+	}
+	ps := make([]*entity.QPerformance, 0)
+	if limit == 0 {
+		limit = 10
+	}
+	err = svc.Find(&ps, nil, orderby, from, limit, conds, paras...)
+	if err != nil {
+		return nil, count, err
+	}
+	return ps, count, nil
 }
 
 func (svc *QPerformanceService) Search(keyword string, tscode string, terms []int, sourceOptions []string, startDate string, endDate string, orderby string, from int, limit int, count int64) ([]*entity.QPerformance, int64, error) {
@@ -145,34 +177,25 @@ func (svc *QPerformanceService) Search(keyword string, tscode string, terms []in
 
 type PerformanceType int64
 
-const (
-	PerformanceType_Performance PerformanceType = iota + 1
-	PerformanceType_Express
-	PerformanceType_Forecast
-)
-
 type StdType int64
 
 const (
-	StdType_None StdType = iota + 1
-	StdType_Std
-	StdType_MinMax
+	StdtypeNone StdType = iota + 1
+	StdtypeStd
+	StdtypeMinmax
 )
 
 type LineType int64
 
 const (
-	LineType_Day LineType = iota + 1
-	LineType_Wmqy
+	LinetypeDay LineType = iota + 1
+	LinetypeWmqy
 )
 
-/*
-*
-组合当前价格和股票季度正式业绩数据
-*/
-func (svc *QPerformanceService) FindQPerformance(lineType LineType, ts_code string, startDate string, endDate string) (map[string][]interface{}, error) {
+// FindQPerformance 组合当前价格和股票季度正式业绩数据
+func (svc *QPerformanceService) FindQPerformance(lineType LineType, tsCode string, startDate string, endDate string) (map[string][]interface{}, error) {
 	lineName := "stk_dayline"
-	if lineType == LineType_Wmqy {
+	if lineType == LinetypeWmqy {
 		lineName = "stk_wmqyline"
 	}
 	sql := "select w.tscode as ts_code,sp.securitynameabbr as security_name" +
@@ -193,14 +216,14 @@ func (svc *QPerformanceService) FindQPerformance(lineType LineType, ts_code stri
 		",sp.NpLastMonth as np_last_month,sp.YoySales as yoy_sales,sp.YoyDeduNp as yoy_dedu_np" +
 		",sp.Cfps as cfps,sp.DividendYieldRatio as dividend_yield_ratio" +
 		" from " + lineName + " w join stk_performance sp on w.tscode=sp.securitycode"
-	conds, tscodeParas := stock.InBuildStr("w.tscode", ts_code, ",")
+	conds, tscodeParas := stock.InBuildStr("w.tscode", tsCode, ",")
 	paras := make([]interface{}, 0)
-	if lineType == LineType_Wmqy {
+	if lineType == LinetypeWmqy {
 		sql = sql + " where w.qdate = sp.qdate"
 	} else {
 		sql = sql + " where w.tradedate = ?"
 		tscode := "000001"
-		if ts_code != "" {
+		if tsCode != "" {
 			tscode = tscodeParas[0].(string)
 		}
 		dayLines, err := GetDayLineService().findMaxTradeDate(tscode)
@@ -212,7 +235,7 @@ func (svc *QPerformanceService) FindQPerformance(lineType LineType, ts_code stri
 		}
 		paras = append(paras, dayLines[0].TradeDate)
 	}
-	if ts_code != "" {
+	if tsCode != "" {
 		sql = sql + " and " + conds
 		paras = append(paras, tscodeParas...)
 	}
@@ -230,7 +253,7 @@ func (svc *QPerformanceService) FindQPerformance(lineType LineType, ts_code stri
 		return nil, err
 	}
 	jsonMap, _, _ := stock.GetJsonMap(entity.QPerformance{})
-	qpMap := make(map[string][]interface{}, 0)
+	qpMap := make(map[string][]interface{})
 	for _, result := range results {
 		qp := &entity.QPerformance{}
 		qp.LineType = int64(lineType)
@@ -251,28 +274,25 @@ func (svc *QPerformanceService) FindQPerformance(lineType LineType, ts_code stri
 	return qpMap, nil
 }
 
-/*
-*
-对股票季度业绩数据进行异常值处理和标准化操作
-*/
+// Std 对股票季度业绩数据进行异常值处理和标准化操作
 func (svc *QPerformanceService) Std(ps []interface{}, stdType StdType, isWinsorize bool) []*entity.QPerformance {
 	qps := make([]*entity.QPerformance, 0)
-	if stdType == 0 || stdType == StdType_None {
+	if stdType == 0 || stdType == StdtypeNone {
 		for _, qp := range ps {
 			qps = append(qps, qp.(*entity.QPerformance))
 		}
 		return qps
 	}
 	_, _, heads := stock.GetJsonMap(entity.QPerformance{})
-	std_colnames := heads[12:]
-	reserved_colnames := heads[0:12]
-	stat := stock.CreateStat(ps, std_colnames)
-	stds, minmaxs := stat.CalStd(reserved_colnames, isWinsorize)
-	if stdType == StdType_MinMax {
+	stdColnames := heads[12:]
+	reservedColnames := heads[0:12]
+	stat := stock.CreateStat(ps, stdColnames)
+	stds, minmaxs := stat.CalStd(reservedColnames, isWinsorize)
+	if stdType == StdtypeMinmax {
 		for _, qp := range minmaxs {
 			qps = append(qps, qp.(*entity.QPerformance))
 		}
-	} else if stdType == StdType_Std {
+	} else if stdType == StdtypeStd {
 		for _, qp := range stds {
 			qps = append(qps, qp.(*entity.QPerformance))
 		}
@@ -281,34 +301,34 @@ func (svc *QPerformanceService) Std(ps []interface{}, stdType StdType, isWinsori
 	return qps
 }
 
-/*
-*
-组合当前价格和股票季度业绩、预测和快报数据，形成完整的股票季度业绩数据，进行标准化操作
-*/
-func (svc *QPerformanceService) findWmqyQPerformance(ts_code string, startDate string, endDate string, stdType StdType, isWinsorize bool) (map[string][]*entity.QPerformance, error) {
-	previousMap := make(map[string]*entity.QPerformance, 0)
+// 组合当前价格和股票季度业绩、预测和快报数据，形成完整的股票季度业绩数据，进行标准化操作
+func (svc *QPerformanceService) findWmqyQPerformance(tsCode string, startDate string, endDate string, stdType StdType, isWinsorize bool) (map[string][]*entity.QPerformance, error) {
+	previousMap := make(map[string]*entity.QPerformance)
 	if startDate == "" {
-		qp, _ := svc.findMaxQDate(ts_code, int64(LineType_Wmqy))
+		qp, _ := svc.findMaxQDate(tsCode, int64(LinetypeWmqy))
 		if qp != nil {
 			startDate = qp.QDate
 		}
 	}
-	svc.deleteQPerformance(ts_code, LineType_Wmqy, startDate)
-	qp, _ := svc.findMaxQDate(ts_code, int64(LineType_Wmqy))
-	if qp != nil {
-		previousMap[ts_code] = qp
-	}
-	qpMap, err := svc.FindQPerformance(LineType_Wmqy, ts_code, startDate, endDate)
+	err := svc.deleteQPerformance(tsCode, LinetypeWmqy, startDate)
 	if err != nil {
 		return nil, err
 	}
-	qeMap, err := svc.FindQExpress(LineType_Wmqy, ts_code, startDate, endDate)
+	qp, _ := svc.findMaxQDate(tsCode, int64(LinetypeWmqy))
+	if qp != nil {
+		previousMap[tsCode] = qp
+	}
+	qpMap, err := svc.FindQPerformance(LinetypeWmqy, tsCode, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	qeMap, err := svc.FindQExpress(LinetypeWmqy, tsCode, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 	svc.merge(qeMap, qpMap)
 
-	qfMap, err := svc.FindQForecast(LineType_Wmqy, ts_code, startDate, endDate)
+	qfMap, err := svc.FindQForecast(LinetypeWmqy, tsCode, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
@@ -321,14 +341,14 @@ func (svc *QPerformanceService) findWmqyQPerformance(ts_code string, startDate s
 	return stds, nil
 }
 
-func (svc *QPerformanceService) findDayQPerformance(ts_code string, stdType StdType, isWinsorize bool) (map[string][]*entity.QPerformance, error) {
+func (svc *QPerformanceService) findDayQPerformance(tsCode string, stdType StdType, isWinsorize bool) (map[string][]*entity.QPerformance, error) {
 	var dqMap map[string][]interface{}
 	var err error
-	performanceQDate, err := GetPerformanceService().findMaxQDate(ts_code)
+	performanceQDate, err := GetPerformanceService().findMaxQDate(tsCode)
 	if err != nil {
 		logger.Sugar.Errorf("Performance findMaxQDate error:%v", err.Error())
 	}
-	expressQDate, err := GetExpressService().findMaxQDate(ts_code)
+	expressQDate, err := GetExpressService().findMaxQDate(tsCode)
 	if err != nil {
 		logger.Sugar.Errorf("Express findMaxQDate error:%v", err.Error())
 	}
@@ -338,7 +358,7 @@ func (svc *QPerformanceService) findDayQPerformance(ts_code string, stdType StdT
 	} else {
 		startDate = expressQDate
 	}
-	forecastQDate, err := GetForecastService().findMaxQDate(ts_code)
+	forecastQDate, err := GetForecastService().findMaxQDate(tsCode)
 	if err != nil {
 		logger.Sugar.Errorf("Forecast findMaxQDate error:%v", err.Error())
 	}
@@ -347,26 +367,26 @@ func (svc *QPerformanceService) findDayQPerformance(ts_code string, stdType StdT
 	}
 	endDate := startDate
 	if performanceQDate == startDate {
-		dqMap, err = svc.FindQPerformance(LineType_Day, ts_code, startDate, endDate)
+		dqMap, err = svc.FindQPerformance(LinetypeDay, tsCode, startDate, endDate)
 		if err != nil {
 			return nil, err
 		}
 	} else if expressQDate == startDate {
-		dqMap, err = svc.FindQExpress(LineType_Day, ts_code, startDate, endDate)
+		dqMap, err = svc.FindQExpress(LinetypeDay, tsCode, startDate, endDate)
 		if err != nil {
 			return nil, err
 		}
 	} else if forecastQDate == startDate {
-		dqMap, err = svc.FindQForecast(LineType_Day, ts_code, startDate, endDate)
+		dqMap, err = svc.FindQForecast(LinetypeDay, tsCode, startDate, endDate)
 		if err != nil {
 			return nil, err
 		}
 
 	}
-	previousMap := make(map[string]*entity.QPerformance, 0)
-	qp, err := svc.findMaxQDate(ts_code, 0)
+	previousMap := make(map[string]*entity.QPerformance)
+	qp, err := svc.findMaxQDate(tsCode, 0)
 	if qp != nil {
-		previousMap[ts_code] = qp
+		previousMap[tsCode] = qp
 	}
 	svc.Compute(dqMap, previousMap)
 
@@ -375,16 +395,13 @@ func (svc *QPerformanceService) findDayQPerformance(ts_code string, stdType StdT
 	return stds, nil
 }
 
-/*
-*
-查询股票季度业绩数据，并进行标准化处理
-*/
-func (svc *QPerformanceService) FindStdQPerformance(ts_code string, terms []int, startDate string, endDate string, stdType StdType, isWinsorize bool) (map[string][]*entity.QPerformance, error) {
-	qps, _, err := svc.Search("", ts_code, terms, nil, startDate, endDate, "", 0, 0, 1)
+// FindStdQPerformance 查询股票季度业绩数据，并进行标准化处理
+func (svc *QPerformanceService) FindStdQPerformance(tsCode string, terms []int, startDate string, endDate string, stdType StdType, isWinsorize bool) (map[string][]*entity.QPerformance, error) {
+	qps, _, err := svc.Search("", tsCode, terms, nil, startDate, endDate, "", 0, 0, 1)
 	if err != nil {
 		return nil, err
 	}
-	qpMap := make(map[string][]interface{}, 0)
+	qpMap := make(map[string][]interface{})
 	for _, qp := range qps {
 		ps, ok := qpMap[qp.TsCode]
 		if !ok {
@@ -399,10 +416,7 @@ func (svc *QPerformanceService) FindStdQPerformance(ts_code string, terms []int,
 	return stds, nil
 }
 
-/*
-*
-批量标准化股票季度业绩数据
-*/
+// StdMap 批量标准化股票季度业绩数据
 func (svc *QPerformanceService) StdMap(psMap map[string][]interface{}, stdType StdType, isWinsorize bool) map[string][]*entity.QPerformance {
 	stds := make(map[string][]*entity.QPerformance)
 	for tscode, ps := range psMap {
@@ -413,13 +427,10 @@ func (svc *QPerformanceService) StdMap(psMap map[string][]interface{}, stdType S
 	return stds
 }
 
-/*
-*
-合并当前价格和股票季度业绩、预测、快报数据，按照时间排序
-*/
+// 合并当前价格和股票季度业绩、预测、快报数据，按照时间排序
 func (svc *QPerformanceService) merge(qeMap map[string][]interface{}, qpMap map[string][]interface{}) {
-	for ts_code, qes := range qeMap {
-		qps, ok := qpMap[ts_code]
+	for tsCode, qes := range qeMap {
+		qps, ok := qpMap[tsCode]
 		qdate := ""
 		var tradeDate int64
 		if ok && len(qps) > 0 {
@@ -432,11 +443,11 @@ func (svc *QPerformanceService) merge(qeMap map[string][]interface{}, qpMap map[
 				qe := qes[i].(*entity.QPerformance)
 				if qe.QDate > qdate {
 					qps = append(qps, qe)
-					qpMap[ts_code] = qps
+					qpMap[tsCode] = qps
 				} else if qe.QDate == qdate {
 					if qe.TradeDate > tradeDate {
 						qps = append(qps, qe)
-						qpMap[ts_code] = qps
+						qpMap[tsCode] = qps
 					} else {
 						break
 					}
@@ -448,10 +459,7 @@ func (svc *QPerformanceService) merge(qeMap map[string][]interface{}, qpMap map[
 	}
 }
 
-/*
-*
-计算并推导缺失的当前价格和股票季度业绩数据项
-*/
+// Compute 计算并推导缺失的当前价格和股票季度业绩数据项
 func (svc *QPerformanceService) Compute(qpMap map[string][]interface{}, previousMap map[string]*entity.QPerformance) {
 	_, tscodeMap := GetShareService().GetCacheShare()
 	for tscode, qps := range qpMap {
@@ -499,7 +507,6 @@ func (svc *QPerformanceService) Compute(qpMap map[string][]interface{}, previous
 			}
 			if !stock.Equal(qp.WeightAvgRoe, 0.0) {
 				if strings.HasSuffix(qp.QDate, "Q4") {
-					qp.WeightAvgRoe = qp.WeightAvgRoe
 				} else if strings.HasSuffix(qp.QDate, "Q3") {
 					qp.WeightAvgRoe = qp.WeightAvgRoe * 4 / 3
 				} else if strings.HasSuffix(qp.QDate, "Q2") {
@@ -533,8 +540,8 @@ func (svc *QPerformanceService) Compute(qpMap map[string][]interface{}, previous
 					qp.NpLastMonth = previous.NpLastMonth
 				}
 			}
-			if previous != nil && stock.Equal(qp.GrossprofitMargin, 0.0) {
-				qp.GrossprofitMargin = previous.GrossprofitMargin
+			if previous != nil && stock.Equal(qp.GrossProfitMargin, 0.0) {
+				qp.GrossProfitMargin = previous.GrossProfitMargin
 			}
 			if qp.Industry == "" {
 				share, ok := tscodeMap[qp.TsCode]
@@ -554,13 +561,10 @@ func (svc *QPerformanceService) Compute(qpMap map[string][]interface{}, previous
 	}
 }
 
-/*
-*
-组合当前价格和股票季度业绩快报数据
-*/
-func (svc *QPerformanceService) FindQExpress(lineType LineType, ts_code string, startDate string, endDate string) (map[string][]interface{}, error) {
+// FindQExpress 组合当前价格和股票季度业绩快报数据
+func (svc *QPerformanceService) FindQExpress(lineType LineType, tsCode string, startDate string, endDate string) (map[string][]interface{}, error) {
 	lineName := "stk_dayline"
-	if lineType == LineType_Wmqy {
+	if lineType == LinetypeWmqy {
 		lineName = "stk_wmqyline"
 	}
 	sql := "select w.tscode as ts_code,sp.securitynameabbr as security_name" +
@@ -581,14 +585,14 @@ func (svc *QPerformanceService) FindQExpress(lineType LineType, ts_code string, 
 		",sp.ParentNetProfit as parent_net_profit,sp.BasicEps as basic_eps,sp.OrLastMonth as or_last_month" +
 		",sp.NpLastMonth as np_last_month,sp.YoySales as yoy_sales,sp.YoyNetProfit as yoy_dedu_np" +
 		" from " + lineName + " w join stk_express sp on w.tscode=sp.securitycode"
-	conds, tscodeParas := stock.InBuildStr("w.tscode", ts_code, ",")
+	conds, tscodeParas := stock.InBuildStr("w.tscode", tsCode, ",")
 	paras := make([]interface{}, 0)
-	if lineType == LineType_Wmqy {
+	if lineType == LinetypeWmqy {
 		sql = sql + " where w.qdate = sp.qdate"
 	} else {
 		sql = sql + " where w.tradedate = ?"
 		tscode := "000001"
-		if ts_code != "" {
+		if tsCode != "" {
 			tscode = tscodeParas[0].(string)
 		}
 		dayLines, err := GetDayLineService().findMaxTradeDate(tscode)
@@ -600,7 +604,7 @@ func (svc *QPerformanceService) FindQExpress(lineType LineType, ts_code string, 
 		}
 		paras = append(paras, dayLines[0].TradeDate)
 	}
-	if ts_code != "" {
+	if tsCode != "" {
 		sql = sql + " and " + conds
 		paras = append(paras, tscodeParas...)
 	}
@@ -618,7 +622,7 @@ func (svc *QPerformanceService) FindQExpress(lineType LineType, ts_code string, 
 		return nil, err
 	}
 	jsonMap, _, _ := stock.GetJsonMap(entity.QPerformance{})
-	qpMap := make(map[string][]interface{}, 0)
+	qpMap := make(map[string][]interface{})
 	for _, result := range results {
 		qp := &entity.QPerformance{}
 		qp.LineType = int64(lineType)
@@ -639,13 +643,10 @@ func (svc *QPerformanceService) FindQExpress(lineType LineType, ts_code string, 
 	return qpMap, nil
 }
 
-/*
-*
-组合当前价格和股票季度业绩预测数据
-*/
-func (svc *QPerformanceService) FindQForecast(lineType LineType, ts_code string, startDate string, endDate string) (map[string][]interface{}, error) {
+// FindQForecast 组合当前价格和股票季度业绩预测数据
+func (svc *QPerformanceService) FindQForecast(lineType LineType, tsCode string, startDate string, endDate string) (map[string][]interface{}, error) {
 	lineName := "stk_dayline"
-	if lineType == LineType_Wmqy {
+	if lineType == LinetypeWmqy {
 		lineName = "stk_wmqyline"
 	}
 	forecastView := "(select securitycode,securitynameabbr,qdate,max(ndate) as ndate" +
@@ -673,14 +674,14 @@ func (svc *QPerformanceService) FindQForecast(lineType LineType, ts_code string,
 		",sp.YoyDeduNp as yoy_dedu_np,sp.YoySales as yoy_sales" +
 		" from " + lineName + " w join "
 	sql = sql + forecastView + " sp on w.tscode=sp.securitycode"
-	conds, tscodeParas := stock.InBuildStr("w.tscode", ts_code, ",")
+	conds, tscodeParas := stock.InBuildStr("w.tscode", tsCode, ",")
 	paras := make([]interface{}, 0)
-	if lineType == LineType_Wmqy {
+	if lineType == LinetypeWmqy {
 		sql = sql + " where w.qdate = sp.qdate"
 	} else {
 		sql = sql + " where w.tradedate = ?"
 		tscode := "000001"
-		if ts_code != "" {
+		if tsCode != "" {
 			tscode = (tscodeParas[0]).(string)
 		}
 		dayLines, err := GetDayLineService().findMaxTradeDate(tscode)
@@ -692,7 +693,7 @@ func (svc *QPerformanceService) FindQForecast(lineType LineType, ts_code string,
 		}
 		paras = append(paras, dayLines[0].TradeDate)
 	}
-	if ts_code != "" {
+	if tsCode != "" {
 		sql = sql + " and " + conds
 		paras = append(paras, tscodeParas...)
 	}
@@ -710,7 +711,7 @@ func (svc *QPerformanceService) FindQForecast(lineType LineType, ts_code string,
 		return nil, err
 	}
 	jsonMap, _, _ := stock.GetJsonMap(entity.QPerformance{})
-	qpMap := make(map[string][]interface{}, 0)
+	qpMap := make(map[string][]interface{})
 	for _, result := range results {
 		qp := &entity.QPerformance{}
 		qp.LineType = int64(lineType)
@@ -736,18 +737,15 @@ func (svc *QPerformanceService) FindQForecast(lineType LineType, ts_code string,
 	return qpMap, nil
 }
 
-/*
-*
-刷新所有股票的季度业绩数据
-*/
+// RefreshWmqyQPerformance 刷新所有股票的季度业绩数据
 func (svc *QPerformanceService) RefreshWmqyQPerformance(startDate string) error {
 	processLog := GetProcessLogService().StartLog("qperformance", "RefreshWmqyQPerformance", "")
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateWmqyQPerformance, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		para = append(para, startDate)
 		routinePool.Invoke(para)
 	}
@@ -760,10 +758,10 @@ func (svc *QPerformanceService) RefreshDayQPerformance() error {
 	processLog := GetProcessLogService().StartLog("qperformance", "RefreshDayQPerformance", "")
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateDayQPerformance, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		routinePool.Invoke(para)
 	}
 	routinePool.Wait(nil)
@@ -771,12 +769,9 @@ func (svc *QPerformanceService) RefreshDayQPerformance() error {
 	return nil
 }
 
-/*
-*
-查询最新的股票季度业绩数据的时间
-*/
-func (svc *QPerformanceService) findMaxQDate(ts_code string, lineType int64) (*entity.QPerformance, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// 查询最新的股票季度业绩数据的时间
+func (svc *QPerformanceService) findMaxQDate(tsCode string, lineType int64) (*entity.QPerformance, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	qperformances := make([]*entity.QPerformance, 0)
 	if lineType != 0 {
 		conds = conds + " and linetype=?"
@@ -793,12 +788,9 @@ func (svc *QPerformanceService) findMaxQDate(ts_code string, lineType int64) (*e
 	return nil, nil
 }
 
-/*
-*
-查询最新的股票季度业绩数据的时间
-*/
-func (svc *QPerformanceService) findMinQDate(ts_code string, lineType int64) (*entity.QPerformance, error) {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// 查询最新的股票季度业绩数据的时间
+func (svc *QPerformanceService) findMinQDate(tsCode string, lineType int64) (*entity.QPerformance, error) {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	qperformances := make([]*entity.QPerformance, 0)
 	if lineType != 0 {
 		conds = conds + " and linetype=?"
@@ -815,15 +807,12 @@ func (svc *QPerformanceService) findMinQDate(ts_code string, lineType int64) (*e
 	return nil, nil
 }
 
-/*
-*
-删除股票的季度业绩数据
-*/
-func (svc *QPerformanceService) deleteQPerformance(ts_code string, lineType LineType, startDate string) error {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// 删除股票的季度业绩数据
+func (svc *QPerformanceService) deleteQPerformance(tsCode string, lineType LineType, startDate string) error {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	qperformance := &entity.QPerformance{}
 	if lineType != 0 {
-		if lineType == LineType_Wmqy {
+		if lineType == LinetypeWmqy {
 			conds = conds + " and (linetype=? or linetype is null)"
 		} else {
 			conds = conds + " and linetype=?"
@@ -845,18 +834,21 @@ func (svc *QPerformanceService) deleteQPerformance(ts_code string, lineType Line
 func (svc *QPerformanceService) AsyncUpdateWmqyQPerformance(para interface{}) {
 	tscode := (para.([]interface{}))[0].(string)
 	startDate := (para.([]interface{}))[1].(string)
-	svc.GetUpdateWmqyQPerformance(tscode, startDate)
+	_, err := svc.GetUpdateWmqyQPerformance(tscode, startDate)
+	if err != nil {
+		return
+	}
 }
 
 func (svc *QPerformanceService) AsyncUpdateDayQPerformance(para interface{}) {
 	tscode := (para.([]interface{}))[0].(string)
-	svc.GetUpdateDayQPerformance(tscode)
+	_, err := svc.GetUpdateDayQPerformance(tscode)
+	if err != nil {
+		return
+	}
 }
 
-/*
-*
-更新股票季度业绩数据，并返回结果
-*/
+// GetUpdateWmqyQPerformance 更新股票季度业绩数据，并返回结果
 func (svc *QPerformanceService) GetUpdateWmqyQPerformance(tscode string, startDate string) ([]interface{}, error) {
 	processLog := GetProcessLogService().StartLog("qperformance", "GetUpdateQPerformance", tscode)
 	ps, err := svc.updateWmqyQPerformance(tscode, startDate)
@@ -869,22 +861,25 @@ func (svc *QPerformanceService) GetUpdateWmqyQPerformance(tscode string, startDa
 
 func (svc *QPerformanceService) GetUpdateDayQPerformance(tscode string) ([]interface{}, error) {
 	//processLog := GetProcessLogService().StartLog("qperformance", "GetUpdateQPerformance", tscode)
-	svc.deleteQPerformance(tscode, LineType_Day, "")
+	err := svc.deleteQPerformance(tscode, LinetypeDay, "")
+	if err != nil {
+		return nil, err
+	}
 	ps, err := svc.updateDayQPerformance(tscode)
 	if err != nil {
 		//GetProcessLogService().EndLog(processLog, "", err.Error())
 		return nil, err
 	}
-	GetQStatService().GetUpdateQStat(tscode)
+	_, err = GetQStatService().GetUpdateQStat(tscode)
+	if err != nil {
+		return nil, err
+	}
 	return ps, err
 }
 
-/*
-*
-更新股票季度业绩数据，并返回结果
-*/
+// 更新股票季度业绩数据，并返回结果
 func (svc *QPerformanceService) updateWmqyQPerformance(tscode string, startDate string) ([]interface{}, error) {
-	qperformanceMap, err := svc.findWmqyQPerformance(tscode, startDate, "", StdType_None, false)
+	qperformanceMap, err := svc.findWmqyQPerformance(tscode, startDate, "", StdtypeNone, false)
 	if err != nil {
 		logger.Sugar.Errorf("tscode:%v Error:%v", tscode, err.Error())
 		return nil, err
@@ -908,12 +903,9 @@ func (svc *QPerformanceService) updateWmqyQPerformance(tscode string, startDate 
 	return ps, err
 }
 
-/*
-*
-更新股票季度业绩数据，并返回结果
-*/
+// 更新股票季度业绩数据，并返回结果
 func (svc *QPerformanceService) updateDayQPerformance(tscode string) ([]interface{}, error) {
-	qperformanceMap, err := svc.findDayQPerformance(tscode, StdType_None, false)
+	qperformanceMap, err := svc.findDayQPerformance(tscode, StdtypeNone, false)
 	if err != nil {
 		logger.Sugar.Errorf("tscode:%v Error:%v", tscode, err.Error())
 		return nil, err
@@ -937,18 +929,15 @@ func (svc *QPerformanceService) updateDayQPerformance(tscode string) ([]interfac
 	return ps, err
 }
 
-/*
-*
-通过数据库sql计算累计涨幅
-*/
-func (svc *QPerformanceService) FindAccBySql(ts_code string, startDate string) (map[string][]interface{}, error) {
+// FindAccBySql 通过数据库sql计算累计涨幅
+func (svc *QPerformanceService) FindAccBySql(tsCode string, startDate string) (map[string][]interface{}, error) {
 	startDate, _ = stock.AddQuarter(startDate, -1)
-	qpMap, err := svc.FindStdQPerformance(ts_code, nil, startDate, "", StdType_None, false)
+	qpMap, err := svc.FindStdQPerformance(tsCode, nil, startDate, "", StdtypeNone, false)
 	if err != nil {
-		logger.Sugar.Errorf("tscode:%v Error:%v", ts_code, err.Error())
+		logger.Sugar.Errorf("tscode:%v Error:%v", tsCode, err.Error())
 		return nil, err
 	}
-	qsMap := make(map[string][]interface{}, 0)
+	qsMap := make(map[string][]interface{})
 	for tscode, qps := range qpMap {
 		marketValue := 0.0
 		yearNetProfit := 0.0
@@ -1037,10 +1026,7 @@ func (svc *QPerformanceService) GetQTermBySql(tscode string, term int) (*QTerm, 
 	return qterm, nil
 }
 
-/*
-*
-在所有的数据中分选出各种不同的term对应的数据集，原始数据降序排列
-*/
+// GetQTerm 在所有的数据中分选出各种不同的term对应的数据集，原始数据降序排列
 func (svc *QPerformanceService) GetQTerm(qpMap map[string][]*entity.QPerformance, terms []int) (map[string]map[int]*QTerm, error) {
 	qtermMap := make(map[string]map[int]*QTerm)
 	for tscode, qps := range qpMap {
@@ -1079,49 +1065,46 @@ func (svc *QPerformanceService) GetQTerm(qpMap map[string][]*entity.QPerformance
 	return qtermMap, nil
 }
 
-/*
-*
-通过数据库sql计算股票季度业绩全部统计数据，并返回结果
-*/
-func (svc *QPerformanceService) FindAllQStatBySql(ts_code string, startDate string, endDate string) map[string][]interface{} {
-	qpMap, err := svc.FindQStatBySql("sum", ts_code, startDate, endDate, "")
+// FindAllQStatBySql 通过数据库sql计算股票季度业绩全部统计数据，并返回结果
+func (svc *QPerformanceService) FindAllQStatBySql(tsCode string, startDate string, endDate string) map[string][]interface{} {
+	qpMap, err := svc.FindQStatBySql("sum", tsCode, startDate, endDate, "")
 	if err != nil {
-		qpMap = make(map[string][]interface{}, 0)
+		qpMap = make(map[string][]interface{})
 	}
 	stats := make([]map[string][]interface{}, 0)
-	maxMap, err := svc.FindQStatBySql("max", ts_code, startDate, endDate, "")
+	maxMap, err := svc.FindQStatBySql("max", tsCode, startDate, endDate, "")
 	if err == nil {
 		stats = append(stats, maxMap)
 	}
-	minMap, err := svc.FindQStatBySql("min", ts_code, startDate, endDate, "")
+	minMap, err := svc.FindQStatBySql("min", tsCode, startDate, endDate, "")
 	if err == nil {
 		stats = append(stats, minMap)
 	}
-	meanMap, err := svc.FindQStatBySql("mean", ts_code, startDate, endDate, "")
+	meanMap, err := svc.FindQStatBySql("mean", tsCode, startDate, endDate, "")
 	if err == nil {
 		stats = append(stats, meanMap)
 	}
-	medianMap, err := svc.FindQStatBySql("median", ts_code, startDate, endDate, "")
+	medianMap, err := svc.FindQStatBySql("median", tsCode, startDate, endDate, "")
 	if err == nil {
 		stats = append(stats, medianMap)
 	}
-	stddevMap, err := svc.FindQStatBySql("stddev", ts_code, startDate, endDate, "")
+	stddevMap, err := svc.FindQStatBySql("stddev", tsCode, startDate, endDate, "")
 	if err == nil {
 		stats = append(stats, stddevMap)
 	}
-	rsdMap, err := svc.FindQStatBySql("rsd", ts_code, startDate, endDate, "")
+	rsdMap, err := svc.FindQStatBySql("rsd", tsCode, startDate, endDate, "")
 	if err == nil {
 		stats = append(stats, rsdMap)
 	}
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QPerformance{})
 	for _, jsonHead := range jsonHeads[14:] {
 		fieldname := jsonMap[jsonHead]
-		corrMap, err := svc.FindQStatBySql("corr", ts_code, startDate, endDate, fieldname)
+		corrMap, err := svc.FindQStatBySql("corr", tsCode, startDate, endDate, fieldname)
 		if err == nil {
 			stats = append(stats, corrMap)
 		}
 	}
-	accMap, err := svc.FindAccBySql(ts_code, startDate)
+	accMap, err := svc.FindAccBySql(tsCode, startDate)
 	if err == nil {
 		stats = append(stats, accMap)
 	}
@@ -1141,11 +1124,8 @@ func (svc *QPerformanceService) FindAllQStatBySql(ts_code string, startDate stri
 	return qpMap
 }
 
-/*
-*
-通过数据库sql计算股票季度业绩某种统计数据，并返回结果
-*/
-func (svc *QPerformanceService) FindQStatBySql(aggregationType string, ts_code string, startDate string, endDate string, sourceName string) (map[string][]interface{}, error) {
+// FindQStatBySql 通过数据库sql计算股票季度业绩某种统计数据，并返回结果
+func (svc *QPerformanceService) FindQStatBySql(aggregationType string, tsCode string, startDate string, endDate string, sourceName string) (map[string][]interface{}, error) {
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QPerformance{})
 	sql := "select tscode as ts_code,SecurityName as security_name,industry as industry,sector as sector"
 	for _, jsonHead := range jsonHeads[14:] {
@@ -1167,9 +1147,9 @@ func (svc *QPerformanceService) FindQStatBySql(aggregationType string, ts_code s
 		}
 	}
 	sql = sql + " from stk_qperformance where 1=1"
-	conds, tscodeParas := stock.InBuildStr("tscode", ts_code, ",")
+	conds, tscodeParas := stock.InBuildStr("tscode", tsCode, ",")
 	paras := make([]interface{}, 0)
-	if ts_code != "" {
+	if tsCode != "" {
 		sql = sql + " and " + conds
 		paras = append(paras, tscodeParas...)
 	}
@@ -1189,7 +1169,7 @@ func (svc *QPerformanceService) FindQStatBySql(aggregationType string, ts_code s
 	if err != nil {
 		return nil, err
 	}
-	qpMap := make(map[string][]interface{}, 0)
+	qpMap := make(map[string][]interface{})
 	for _, result := range results {
 		qp := &entity.QStat{}
 		for colname, v := range result {
@@ -1214,13 +1194,10 @@ func (svc *QPerformanceService) FindQStatBySql(aggregationType string, ts_code s
 	return qpMap, nil
 }
 
-/*
-*
-计算股票的在本股票历史上以及在同行业历史上的位置,不支持tscode多只股票
-*/
-func (svc *QPerformanceService) FindPercentRank(rankType string, ts_code string, tradeDate int64, startDate string, endDate string, from int, limit int, count int64) ([]*entity.QPerformance, error) {
+// FindPercentRank 计算股票的在本股票历史上以及在同行业历史上的位置,不支持tscode多只股票
+func (svc *QPerformanceService) FindPercentRank(rankType string, tsCode string, tradeDate int64, startDate string, endDate string, from int, limit int, count int64) ([]*entity.QPerformance, error) {
 	_, shares := GetShareService().GetCacheShare()
-	in, inParas := stock.InBuildStr("ts_code", ts_code, ",")
+	in, inParas := stock.InBuildStr("ts_code", tsCode, ",")
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QPerformance{})
 	sql := "select id as id,tscode as ts_code,securityname as security_name,industry as industry,sector as sector"
 	sql = sql + ",qdate as qdate,ndate as ndate,tradedate as trade_date,source as source,linetype as line_type"
@@ -1235,10 +1212,10 @@ func (svc *QPerformanceService) FindPercentRank(rankType string, ts_code string,
 		}
 	}
 	sql = sql + " from stk_qperformance"
-	share, ok := shares[ts_code]
+	share, ok := shares[tsCode]
 	if ok {
 		if rankType == "tscode" {
-			sql = sql + " where tscode='" + ts_code + "'"
+			sql = sql + " where tscode='" + tsCode + "'"
 		} else if rankType == "industry" {
 			sql = sql + " where industry='" + share.Industry + "'"
 		} else if rankType == "sector" {
@@ -1291,7 +1268,10 @@ func (svc *QPerformanceService) FindPercentRank(rankType string, ts_code string,
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.QPerformance))
+	err := service.GetSession().Sync(new(entity.QPerformance))
+	if err != nil {
+		return
+	}
 	qperformanceService.OrmBaseService.GetSeqName = qperformanceService.GetSeqName
 	qperformanceService.OrmBaseService.FactNewEntity = qperformanceService.NewEntity
 	qperformanceService.OrmBaseService.FactNewEntities = qperformanceService.NewEntities

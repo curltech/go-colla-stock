@@ -137,7 +137,7 @@ func (ctl *WmqyLineController) FindQPerformance(ctx iris.Context) {
 	if ok {
 		isWinsorize = v.(bool)
 	}
-	wmqyLineMap, err := svc.FindQPerformance(service.LineType_Wmqy, tsCode, startDate, endDate)
+	wmqyLineMap, err := svc.FindQPerformance(service.LinetypeWmqy, tsCode, startDate, endDate)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
@@ -147,7 +147,7 @@ func (ctl *WmqyLineController) FindQPerformance(ctx iris.Context) {
 		return
 	}
 	svc.Compute(wmqyLineMap, nil)
-	qps := svc.StdMap(wmqyLineMap, service.StdType_MinMax, isWinsorize)
+	qps := svc.StdMap(wmqyLineMap, service.StdtypeMinmax, isWinsorize)
 	err = ctx.JSON(qps)
 	if err != nil {
 		return
@@ -199,7 +199,7 @@ func (ctl *WmqyLineController) FindQExpress(ctx iris.Context) {
 			startDate, _ = stock.AddYear(today, -term)
 		}
 	}
-	wmqyLineMap, err := svc.FindQExpress(service.LineType_Wmqy, tsCode, startDate, endDate)
+	wmqyLineMap, err := svc.FindQExpress(service.LinetypeWmqy, tsCode, startDate, endDate)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
@@ -214,7 +214,7 @@ func (ctl *WmqyLineController) FindQExpress(ctx iris.Context) {
 	if ok {
 		isWinsorize = v.(bool)
 	}
-	qps := svc.StdMap(wmqyLineMap, service.StdType_MinMax, isWinsorize)
+	qps := svc.StdMap(wmqyLineMap, service.StdtypeMinmax, isWinsorize)
 	err = ctx.JSON(qps)
 	if err != nil {
 		return
@@ -266,7 +266,7 @@ func (ctl *WmqyLineController) FindQForecast(ctx iris.Context) {
 			startDate, _ = stock.AddYear(today, -term)
 		}
 	}
-	wmqyLineMap, err := svc.FindQForecast(service.LineType_Wmqy, tsCode, startDate, endDate)
+	wmqyLineMap, err := svc.FindQForecast(service.LinetypeWmqy, tsCode, startDate, endDate)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
@@ -281,7 +281,7 @@ func (ctl *WmqyLineController) FindQForecast(ctx iris.Context) {
 	if ok {
 		isWinsorize = v.(bool)
 	}
-	qps := svc.StdMap(wmqyLineMap, service.StdType_MinMax, isWinsorize)
+	qps := svc.StdMap(wmqyLineMap, service.StdtypeMinmax, isWinsorize)
 	err = ctx.JSON(qps)
 	if err != nil {
 		return

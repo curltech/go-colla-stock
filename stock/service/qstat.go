@@ -341,7 +341,7 @@ func (this *QStatService) GetUpdateQStat(tscode string) ([]interface{}, error) {
 */
 func (this *QStatService) UpdateQStat(tscode string, terms []int) ([]interface{}, error) {
 	//获取降序的记录
-	qpMap, err := GetQPerformanceService().FindStdQPerformance(tscode, nil, "", "", StdType_None, false)
+	qpMap, err := GetQPerformanceService().FindStdQPerformance(tscode, nil, "", "", StdtypeNone, false)
 	if err != nil {
 		return nil, err
 	}

@@ -455,12 +455,12 @@ func (svc *WmqyLineService) StdFile(minmax string, standard string, _startDate i
 	ts_code := strings.TrimSuffix(filename, ".csv")
 	startDate := stock.GetQTradeDate(_startDate)
 	endDate := stock.GetQTradeDate(_endDate)
-	wmqyLineMap, err := GetQPerformanceService().FindQPerformance(LineType_Wmqy, ts_code, startDate, endDate)
+	wmqyLineMap, err := GetQPerformanceService().FindQPerformance(LinetypeWmqy, ts_code, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 	wmqyLines, _ := wmqyLineMap[ts_code]
-	qps := GetQPerformanceService().Std(wmqyLines, StdType_MinMax, false)
+	qps := GetQPerformanceService().Std(wmqyLines, StdtypeMinmax, false)
 	if len(qps) < 30 {
 		logger.Sugar.Warnf("ts_code:%v dayLines len: %v is less than 30!", ts_code, len(qps))
 		return nil, nil
