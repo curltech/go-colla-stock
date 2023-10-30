@@ -104,8 +104,9 @@ func (svc *QStatService) FindQStatBy(tsCode string, terms []int, source []string
 	paras = append(paras, tscodeParas...)
 	paras = append(paras, termParas...)
 	if len(source) > 0 {
-		conds = conds + " and source in ?"
-		paras = append(paras, source)
+		sourceConds, sourceParas := stock.InBuildStr("source", strings.Join(source, ","), ",")
+		conds = conds + " and " + sourceConds
+		paras = append(paras, sourceParas...)
 	}
 	var err error
 	condiBean := &entity.QStat{}
@@ -119,9 +120,6 @@ func (svc *QStatService) FindQStatBy(tsCode string, terms []int, source []string
 		orderby = "tscode,term,source,sourcename"
 	}
 	qstats := make([]*entity.QStat, 0)
-	if limit == 0 {
-		limit = 10
-	}
 	err = svc.Find(&qstats, nil, orderby, from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err

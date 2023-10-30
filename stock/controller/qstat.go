@@ -75,6 +75,14 @@ func (ctl *QStatController) FindQStatBy(ctx iris.Context) {
 
 		return
 	}
+	if qstatPara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+
+		return
+	}
 	svc := service.GetQStatService()
 	ps, count, err := svc.FindQStatBy(qstatPara.TsCode, qstatPara.Terms, qstatPara.Source, qstatPara.Orderby, qstatPara.From, qstatPara.Limit, qstatPara.Count)
 	if err != nil {
