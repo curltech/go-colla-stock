@@ -96,20 +96,16 @@ func (svc *QStatService) Search(keyword string, terms []int, sourceOptions []str
 }
 
 // FindQStatBy 查询股票季度业绩统计数据
-func (svc *QStatService) FindQStatBy(tsCode string, terms []int, source string, sourceName string, orderby string, from int, limit int, count int64) ([]*entity.QStat, int64, error) {
+func (svc *QStatService) FindQStatBy(tsCode string, terms []int, source []string, orderby string, from int, limit int, count int64) ([]*entity.QStat, int64, error) {
 	tscodeConds, tscodeParas := stock.InBuildStr("tscode", tsCode, ",")
 	termConds, termParas := stock.InBuildInt("term", terms)
 	paras := make([]interface{}, 0)
 	conds := tscodeConds + " and " + termConds
 	paras = append(paras, tscodeParas...)
 	paras = append(paras, termParas...)
-	if source != "" {
-		conds = conds + " and source=?"
+	if len(source) > 0 {
+		conds = conds + " and source in ?"
 		paras = append(paras, source)
-	}
-	if sourceName != "" {
-		conds = conds + " and sourcename=?"
-		paras = append(paras, sourceName)
 	}
 	var err error
 	condiBean := &entity.QStat{}

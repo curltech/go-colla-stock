@@ -25,8 +25,7 @@ func (ctl *QStatController) ParseJSON(json []byte) (interface{}, error) {
 
 type QStatPara struct {
 	TsCode        string   `json:"ts_code,omitempty"`
-	Source        string   `json:"source,omitempty"`
-	SourceName    string   `json:"source_name,omitempty"`
+	Source        []string `json:"source,omitempty"`
 	Terms         []int    `json:"terms,omitempty"`
 	SourceOptions []string `json:"source_options,omitempty"`
 	From          int      `json:"from,omitempty"`
@@ -77,7 +76,7 @@ func (ctl *QStatController) FindQStatBy(ctx iris.Context) {
 		return
 	}
 	svc := service.GetQStatService()
-	ps, count, err := svc.FindQStatBy(qstatPara.TsCode, qstatPara.Terms, qstatPara.Source, qstatPara.SourceName, qstatPara.Orderby, qstatPara.From, qstatPara.Limit, qstatPara.Count)
+	ps, count, err := svc.FindQStatBy(qstatPara.TsCode, qstatPara.Terms, qstatPara.Source, qstatPara.Orderby, qstatPara.From, qstatPara.Limit, qstatPara.Count)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
