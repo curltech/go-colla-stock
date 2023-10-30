@@ -281,6 +281,7 @@ func (svc *ShareService) UpdateSector(tsCode string, sector string) {
 var shareCache map[string]*entity.Share = nil
 var cacheTsCodes []string = nil
 
+// GetCacheShare 获取缓存的股票
 func (svc *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
 	if shareCache == nil {
 		shareCache = make(map[string]*entity.Share, 0)

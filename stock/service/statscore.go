@@ -11,7 +11,7 @@ import (
 	"github.com/curltech/go-colla-core/util/reflect"
 	"github.com/curltech/go-colla-core/util/thread"
 	"github.com/curltech/go-colla-stock/stock"
-	entity "github.com/curltech/go-colla-stock/stock/entity"
+	"github.com/curltech/go-colla-stock/stock/entity"
 	"math"
 	"strings"
 	"time"
@@ -27,24 +27,24 @@ func GetStatScoreService() *StatScoreService {
 	return statScoreService
 }
 
-func (this *StatScoreService) GetSeqName() string {
+func (svc *StatScoreService) GetSeqName() string {
 	return seqname
 }
 
-func (this *StatScoreService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.StatScore{}
+func (svc *StatScoreService) NewEntity(data []byte) (interface{}, error) {
+	statScore := &entity.StatScore{}
 	if data == nil {
-		return entity, nil
+		return statScore, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, statScore)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return statScore, err
 }
 
-func (this *StatScoreService) NewEntities(data []byte) (interface{}, error) {
+func (svc *StatScoreService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.StatScore, 0)
 	if data == nil {
 		return &entities, nil
@@ -57,7 +57,7 @@ func (this *StatScoreService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (this *StatScoreService) Search(keyword string, tscode string, terms []int, scoreOptions []string, orderby string, from int, limit int, count int64) ([]*entity.StatScore, int64, error) {
+func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, scoreOptions []string, orderby string, from int, limit int, count int64) ([]*entity.StatScore, int64, error) {
 	termConds, termParas := stock.InBuildInt("term", terms)
 	paras := make([]interface{}, 0)
 	conds := termConds
@@ -77,7 +77,7 @@ func (this *StatScoreService) Search(keyword string, tscode string, terms []int,
 	var err error
 	condiBean := &entity.StatScore{}
 	if count == 0 {
-		count, err = this.Count(condiBean, conds, paras...)
+		count, err = svc.Count(condiBean, conds, paras...)
 		if err != nil {
 			return nil, count, err
 		}
@@ -104,7 +104,7 @@ func (this *StatScoreService) Search(keyword string, tscode string, terms []int,
 		}
 		orderby = orderby + " desc"
 	}
-	err = this.Find(&statScores, nil, orderby, from, limit, conds, paras...)
+	err = svc.Find(&statScores, nil, orderby, from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err
 	}
@@ -117,10 +117,8 @@ func (this *StatScoreService) Search(keyword string, tscode string, terms []int,
 	return statScores, count, nil
 }
 
-/**
-计算股票季度业绩统计数据中位数，最大值和最小值，并返回结果，方便进行去极值和标准化
-*/
-func (this *StatScoreService) FindStatScoreMedian() (map[string]*entity.StatScore, error) {
+// FindStatScoreMedian 计算股票季度业绩统计数据中位数，最大值和最小值，并返回结果，方便进行去极值和标准化
+func (svc *StatScoreService) FindStatScoreMedian() (map[string]*entity.StatScore, error) {
 	jsonHeads := []string{"RiskScore", "AccScore", "ProsScore", "TrendScore", "IncreaseScore", "CorrScore", "PriceScore", "CorrScore", "TotalScore"}
 	jsonMap, _, _ := stock.GetJsonMap(entity.StatScore{})
 	sql := "select term as term"
@@ -133,15 +131,15 @@ func (this *StatScoreService) FindStatScoreMedian() (map[string]*entity.StatScor
 	sql = sql + " from stk_statscore"
 	sql = sql + " group by term"
 	sql = sql + " order by term"
-	results, err := this.Query(sql, nil)
+	results, err := svc.Query(sql, nil)
 	if err != nil {
 		return nil, err
 	}
-	medianMap := make(map[string]*entity.StatScore, 0)
+	medianMap := make(map[string]*entity.StatScore)
 	for _, result := range results {
 		median := &entity.StatScore{}
-		max := &entity.StatScore{}
-		min := &entity.StatScore{}
+		scoreMax := &entity.StatScore{}
+		scoreMin := &entity.StatScore{}
 		for colname, v := range result {
 			s := string(v)
 			if s != "" {
@@ -150,14 +148,14 @@ func (this *StatScoreService) FindStatScoreMedian() (map[string]*entity.StatScor
 					err = reflect.Set(median, jsonMap[colname], s)
 				} else if strings.HasPrefix(colname, "max_") {
 					colname = strings.TrimPrefix(colname, "max_")
-					err = reflect.Set(max, jsonMap[colname], s)
+					err = reflect.Set(scoreMax, jsonMap[colname], s)
 				} else if strings.HasPrefix(colname, "min_") {
 					colname = strings.TrimPrefix(colname, "min_")
-					err = reflect.Set(min, jsonMap[colname], s)
+					err = reflect.Set(scoreMin, jsonMap[colname], s)
 				} else {
 					err = reflect.Set(median, jsonMap[colname], s)
-					err = reflect.Set(max, jsonMap[colname], s)
-					err = reflect.Set(min, jsonMap[colname], s)
+					err = reflect.Set(scoreMax, jsonMap[colname], s)
+					err = reflect.Set(scoreMin, jsonMap[colname], s)
 				}
 				if err != nil {
 					logger.Sugar.Errorf("Set colname %v value %v error:%v", colname, s, err.Error())
@@ -166,17 +164,17 @@ func (this *StatScoreService) FindStatScoreMedian() (map[string]*entity.StatScor
 		}
 		key := fmt.Sprint(median.Term)
 		medianMap["median"+":"+key] = median
-		medianMap["max"+":"+key] = max
-		medianMap["min"+":"+key] = min
+		medianMap["scoreMax"+":"+key] = scoreMax
+		medianMap["min"+":"+key] = scoreMin
 	}
 
 	return medianMap, nil
 }
 
-func (this *StatScoreService) deleteStatScore(ts_code string) error {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+func (svc *StatScoreService) deleteStatScore(tsCode string) error {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	statScore := &entity.StatScore{}
-	_, err := this.Delete(statScore, conds, paras...)
+	_, err := svc.Delete(statScore, conds, paras...)
 	if err != nil {
 		return err
 	}
@@ -184,17 +182,15 @@ func (this *StatScoreService) deleteStatScore(ts_code string) error {
 	return nil
 }
 
-/**
-刷新所有股票的季度业绩统计评分数据
-*/
-func (this *StatScoreService) RefreshStatScore() error {
+// RefreshStatScore 刷新所有股票的季度业绩统计评分数据
+func (svc *StatScoreService) RefreshStatScore() error {
 	processLog := GetProcessLogService().StartLog("qstatscore", "RefreshStatScore", "")
-	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, this.AsyncUpdateStatScore, nil)
+	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateStatScore, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		routinePool.Invoke(para)
 	}
 	routinePool.Wait(nil)
@@ -202,14 +198,17 @@ func (this *StatScoreService) RefreshStatScore() error {
 	return nil
 }
 
-func (this *StatScoreService) AsyncUpdateStatScore(para interface{}) {
+func (svc *StatScoreService) AsyncUpdateStatScore(para interface{}) {
 	tscode := (para.([]interface{}))[0].(string)
-	this.GetUpdateStatScore(tscode)
+	_, err := svc.GetUpdateStatScore(tscode)
+	if err != nil {
+		return
+	}
 }
 
-func (this *StatScoreService) GetUpdateStatScore(ts_code string) (map[string]map[int]*entity.StatScore, error) {
+func (svc *StatScoreService) GetUpdateStatScore(tsCode string) (map[string]map[int]*entity.StatScore, error) {
 	//processLog := GetProcessLogService().StartLog("statscore", "GetUpdateStatScore", ts_code)
-	statScoresMap, err := this.updateStatScore(ts_code)
+	statScoresMap, err := svc.updateStatScore(tsCode)
 	if err != nil {
 		//GetProcessLogService().EndLog(processLog, "", err.Error())
 		return statScoresMap, err
@@ -217,10 +216,8 @@ func (this *StatScoreService) GetUpdateStatScore(ts_code string) (map[string]map
 	return statScoresMap, err
 }
 
-/**
-刷新股票季度业绩评分数据，在计算评分之前需要对所有股票的业绩统计数据进行minmax标准化
-*/
-func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[int]*entity.StatScore, error) {
+// 刷新股票季度业绩评分数据，在计算评分之前需要对所有股票的业绩统计数据进行minmax标准化
+func (svc *StatScoreService) updateStatScore(tsCode string) (map[string]map[int]*entity.StatScore, error) {
 	qstatService := GetQStatService()
 	//err := qstatService.GetQStatMedian()
 	//if err != nil {
@@ -228,9 +225,9 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 	//	return nil, err
 	//}
 	terms := qstatService.Terms
-	qstatMap, err := qstatService.FindQStat(ts_code, terms, "", "")
+	qstatMap, err := qstatService.FindQStat(tsCode, terms, "", "")
 	if err != nil {
-		logger.Sugar.Errorf("ts_code:%v Error:%v", ts_code, err.Error())
+		logger.Sugar.Errorf("ts_code:%v Error:%v", tsCode, err.Error())
 	}
 
 	_, shares := GetShareService().GetCacheShare()
@@ -240,7 +237,7 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 		var lastAccVal *AccValue
 		statScoreMap, ok := statScoresMap[tscode]
 		if !ok {
-			statScoreMap = make(map[int]*entity.StatScore, 0)
+			statScoreMap = make(map[int]*entity.StatScore)
 			statScoresMap[tscode] = statScoreMap
 		}
 		terms := []int{1, 0, 3, 5, 8, 10, 15}
@@ -251,7 +248,7 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 				continue
 			}
 			if len(qstats) == 0 {
-				logger.Sugar.Errorf("ts_code:%v Error:%v", ts_code, errors.New("%v term stat data is len 0"))
+				logger.Sugar.Errorf("ts_code:%v Error:%v", tsCode, errors.New("%v term stat data is len 0"))
 				continue
 			}
 			statScore, ok := statScoreMap[term]
@@ -322,7 +319,7 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 					statScore.RsdNpLastMonth = q.NpLastMonth
 					statScore.RsdPe = q.Pe
 					statScore.RsdWeightAvgRoe = q.WeightAvgRoe
-					statScore.RsdGrossprofitMargin = q.GrossprofitMargin
+					statScore.RsdGrossprofitMargin = q.GrossProfitMargin
 				} else if source == "mean" {
 					statScore.MeanPctChgMarketValue = q.PctChgMarketValue
 					statScore.MeanYoySales = q.YoySales / 100
@@ -330,7 +327,7 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 					statScore.MeanOrLastMonth = q.OrLastMonth / 100
 					statScore.MeanNpLastMonth = q.NpLastMonth / 100
 					statScore.MeanWeightAvgRoe = q.WeightAvgRoe / 100
-					statScore.MeanGrossprofitMargin = q.GrossprofitMargin / 100
+					statScore.MeanGrossprofitMargin = q.GrossProfitMargin / 100
 					statScore.MeanPe = q.Pe
 					statScore.MeanPeg = q.Peg
 				} else if source == "median" {
@@ -340,7 +337,7 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 					statScore.MedianOrLastMonth = q.OrLastMonth / 100
 					statScore.MedianNpLastMonth = q.NpLastMonth / 100
 					statScore.MedianWeightAvgRoe = q.WeightAvgRoe / 100
-					statScore.MedianGrossprofitMargin = q.GrossprofitMargin / 100
+					statScore.MedianGrossprofitMargin = q.GrossProfitMargin / 100
 					statScore.MedianPe = q.Pe
 					statScore.MedianPeg = q.Peg
 				} else if source == "corr" && sourceName == "MarketValue" {
@@ -349,7 +346,7 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 					statScore.CorrYoySales = q.YoySales
 					statScore.CorrYoyDeduNp = q.YoyDeduNp
 					statScore.CorrWeightAvgRoe = q.WeightAvgRoe
-					statScore.CorrGrossprofitMargin = q.GrossprofitMargin
+					statScore.CorrGrossprofitMargin = q.GrossProfitMargin
 				}
 			}
 			if lastAccVal != nil {
@@ -362,26 +359,32 @@ func (this *StatScoreService) updateStatScore(ts_code string) (map[string]map[in
 				statScore.LastMeanPeg = lastAccVal.Peg
 			}
 
-			this.calAccScore(statScore)
-			this.calProsScore(statScore)
-			this.calPriceScore(statScore)
-			this.calStableScore(statScore)
-			this.calRiskScore(statScore)
-			this.calIncreaseScore(statScore)
-			this.calCorrScore(statScore)
-			this.calOperationScore(statScore)
-			this.calTrendScore(statScore)
+			svc.calAccScore(statScore)
+			svc.calProsScore(statScore)
+			svc.calPriceScore(statScore)
+			svc.calStableScore(statScore)
+			svc.calRiskScore(statScore)
+			svc.calIncreaseScore(statScore)
+			svc.calCorrScore(statScore)
+			svc.calOperationScore(statScore)
+			svc.calTrendScore(statScore)
 		}
 	}
 
-	this.deleteStatScore(ts_code)
+	err = svc.deleteStatScore(tsCode)
+	if err != nil {
+		return nil, err
+	}
 	ps := make([]interface{}, 0)
 	for _, statScoreMap := range statScoresMap {
 		for _, statScore := range statScoreMap {
 			ps = append(ps, statScore)
 		}
 	}
-	this.Insert(ps...)
+	_, err = svc.Insert(ps...)
+	if err != nil {
+		return nil, err
+	}
 	return statScoresMap, nil
 }
 
@@ -395,40 +398,41 @@ type AccValue struct {
 	Peg               float64
 }
 
-func (this *StatScoreService) minmaxScore(val float64) float64 {
+func (svc *StatScoreService) minmaxScore(val float64) float64 {
 	return 10 * val
 }
 
-func (this *StatScoreService) maxminScore(val float64) float64 {
+func (svc *StatScoreService) maxminScore(val float64) float64 {
 	return 10 * (1 - val)
 }
 
-/**
+/*
+*
 计算各项评分，进行汇总，每个评分项的总分为0-100，每个子项的总分为0-10,5为一般情况
 */
-func (this *StatScoreService) calStableScore(statScore *entity.StatScore) {
-	score := this.rsdScore(statScore.RsdPctChgMarketValue)
+func (svc *StatScoreService) calStableScore(statScore *entity.StatScore) {
+	score := svc.rsdScore(statScore.RsdPctChgMarketValue)
 	statScore.StableScore += score
 
-	score = this.rsdScore(statScore.RsdYoySales)
+	score = svc.rsdScore(statScore.RsdYoySales)
 	statScore.StableScore += score
 
-	score = this.rsdScore(statScore.RsdYoyDeduNp)
+	score = svc.rsdScore(statScore.RsdYoyDeduNp)
 	statScore.StableScore += score
 
-	score = this.rsdScore(statScore.RsdOrLastMonth)
+	score = svc.rsdScore(statScore.RsdOrLastMonth)
 	statScore.StableScore += score
 
-	score = this.rsdScore(statScore.RsdNpLastMonth)
+	score = svc.rsdScore(statScore.RsdNpLastMonth)
 	statScore.StableScore += score
 
-	score = this.rsdScore(statScore.RsdPe)
+	score = svc.rsdScore(statScore.RsdPe)
 	statScore.StableScore += score
 
-	score = this.rsdScore(statScore.RsdWeightAvgRoe)
+	score = svc.rsdScore(statScore.RsdWeightAvgRoe)
 	statScore.StableScore += score * 0.5
 
-	score = this.rsdScore(statScore.RsdGrossprofitMargin)
+	score = svc.rsdScore(statScore.RsdGrossprofitMargin)
 	statScore.StableScore += score * 0.5
 
 	statScore.StableScore = statScore.StableScore * 10 / 7
@@ -444,7 +448,7 @@ func (this *StatScoreService) calStableScore(statScore *entity.StatScore) {
 	statScore.TotalScore += statScore.StableScore
 }
 
-func (this *StatScoreService) rsdScore(val float64) float64 {
+func (svc *StatScoreService) rsdScore(val float64) float64 {
 	if stock.Equal(val, 0.0) {
 		return 5
 	}
@@ -460,23 +464,23 @@ func (this *StatScoreService) rsdScore(val float64) float64 {
 	return 0.0
 }
 
-func (this *StatScoreService) calIncreaseScore(statScore *entity.StatScore) {
-	score := this.increaseScore(statScore.MeanPctChgMarketValue)
+func (svc *StatScoreService) calIncreaseScore(statScore *entity.StatScore) {
+	score := svc.increaseScore(statScore.MeanPctChgMarketValue)
 	statScore.IncreaseScore += score
 
-	score = this.increaseScore(statScore.MeanYoySales)
+	score = svc.increaseScore(statScore.MeanYoySales)
 	statScore.IncreaseScore += score
 
-	score = this.increaseScore(statScore.MeanYoyDeduNp)
+	score = svc.increaseScore(statScore.MeanYoyDeduNp)
 	statScore.IncreaseScore += score
 
-	score = this.increaseScore(statScore.MedianPctChgMarketValue)
+	score = svc.increaseScore(statScore.MedianPctChgMarketValue)
 	statScore.IncreaseScore += score
 
-	score = this.increaseScore(statScore.MedianYoySales)
+	score = svc.increaseScore(statScore.MedianYoySales)
 	statScore.IncreaseScore += score
 
-	score = this.increaseScore(statScore.MedianYoyDeduNp)
+	score = svc.increaseScore(statScore.MedianYoyDeduNp)
 	statScore.IncreaseScore += score
 
 	statScore.IncreaseScore = statScore.IncreaseScore * 10 / 6
@@ -492,7 +496,7 @@ func (this *StatScoreService) calIncreaseScore(statScore *entity.StatScore) {
 	statScore.TotalScore += statScore.IncreaseScore
 }
 
-func (this *StatScoreService) increaseScore(val float64) float64 {
+func (svc *StatScoreService) increaseScore(val float64) float64 {
 	scoreRules := []float64{0.05, 0.2, 0.3, 0.5, 0.7, 1}
 	for i, limit := range scoreRules {
 		if val <= limit {
@@ -504,17 +508,17 @@ func (this *StatScoreService) increaseScore(val float64) float64 {
 	return 10
 }
 
-func (this *StatScoreService) calOperationScore(statScore *entity.StatScore) {
-	score := this.operationScore(statScore.MeanWeightAvgRoe)
+func (svc *StatScoreService) calOperationScore(statScore *entity.StatScore) {
+	score := svc.operationScore(statScore.MeanWeightAvgRoe)
 	statScore.OperationScore += score
 
-	score = this.operationScore(statScore.MeanGrossprofitMargin)
+	score = svc.operationScore(statScore.MeanGrossprofitMargin)
 	statScore.OperationScore += score
 
-	score = this.operationScore(statScore.MedianWeightAvgRoe)
+	score = svc.operationScore(statScore.MedianWeightAvgRoe)
 	statScore.OperationScore += score
 
-	score = this.operationScore(statScore.MedianGrossprofitMargin)
+	score = svc.operationScore(statScore.MedianGrossprofitMargin)
 	statScore.OperationScore += score
 
 	statScore.OperationScore = statScore.OperationScore * 2.5
@@ -530,7 +534,7 @@ func (this *StatScoreService) calOperationScore(statScore *entity.StatScore) {
 	statScore.TotalScore += statScore.OperationScore
 }
 
-func (this *StatScoreService) operationScore(val float64) float64 {
+func (svc *StatScoreService) operationScore(val float64) float64 {
 	scoreRules := []float64{0.05, 0.15, 0.35, 0.7, 1}
 	for i, limit := range scoreRules {
 		if val <= limit {
@@ -542,23 +546,23 @@ func (this *StatScoreService) operationScore(val float64) float64 {
 	return 10
 }
 
-func (this *StatScoreService) calCorrScore(statScore *entity.StatScore) {
-	score := this.corrScore(statScore.CorrYearOperateIncome)
+func (svc *StatScoreService) calCorrScore(statScore *entity.StatScore) {
+	score := svc.corrScore(statScore.CorrYearOperateIncome)
 	statScore.CorrScore += score
 
-	score = this.corrScore(statScore.CorrYearNetProfit)
+	score = svc.corrScore(statScore.CorrYearNetProfit)
 	statScore.CorrScore += score
 
-	score = this.corrScore(statScore.CorrYoySales)
+	score = svc.corrScore(statScore.CorrYoySales)
 	statScore.CorrScore += score
 
-	score = this.corrScore(statScore.CorrYoyDeduNp)
+	score = svc.corrScore(statScore.CorrYoyDeduNp)
 	statScore.CorrScore += score
 
-	score = this.corrScore(statScore.CorrWeightAvgRoe)
+	score = svc.corrScore(statScore.CorrWeightAvgRoe)
 	statScore.CorrScore += score
 
-	score = this.corrScore(statScore.CorrGrossprofitMargin)
+	score = svc.corrScore(statScore.CorrGrossprofitMargin)
 	statScore.CorrScore += score
 
 	statScore.CorrScore = statScore.CorrScore * 10 / 6
@@ -574,7 +578,7 @@ func (this *StatScoreService) calCorrScore(statScore *entity.StatScore) {
 	statScore.TotalScore += statScore.CorrScore
 }
 
-func (this *StatScoreService) corrScore(val float64) float64 {
+func (svc *StatScoreService) corrScore(val float64) float64 {
 	scoreRules := []float64{0.4, 0.6, 0.7, 0.8, 0.9}
 	for i, limit := range scoreRules {
 		if val <= limit {
@@ -586,17 +590,17 @@ func (this *StatScoreService) corrScore(val float64) float64 {
 	return 10
 }
 
-func (this *StatScoreService) calPriceScore(statScore *entity.StatScore) {
-	score := this.peScore(statScore.MeanPe)
+func (svc *StatScoreService) calPriceScore(statScore *entity.StatScore) {
+	score := svc.peScore(statScore.MeanPe)
 	statScore.PriceScore += score
 
-	score = this.peScore(statScore.MedianPe)
+	score = svc.peScore(statScore.MedianPe)
 	statScore.PriceScore += score
 
-	score = this.pegScore(statScore.MeanPeg)
+	score = svc.pegScore(statScore.MeanPeg)
 	statScore.PriceScore += score
 
-	score = this.pegScore(statScore.MedianPeg)
+	score = svc.pegScore(statScore.MedianPeg)
 	statScore.PriceScore += score
 
 	statScore.PriceScore = statScore.PriceScore * 2.5
@@ -610,7 +614,7 @@ func (this *StatScoreService) calPriceScore(statScore *entity.StatScore) {
 	statScore.TotalScore += statScore.PriceScore
 }
 
-func (this *StatScoreService) peScore(val float64) float64 {
+func (svc *StatScoreService) peScore(val float64) float64 {
 	if val < 0 {
 		return 0
 	}
@@ -628,7 +632,7 @@ func (this *StatScoreService) peScore(val float64) float64 {
 	return 10.0
 }
 
-func (this *StatScoreService) pegScore(val float64) float64 {
+func (svc *StatScoreService) pegScore(val float64) float64 {
 	if val < 0 {
 		return 0.0
 	}
@@ -643,15 +647,16 @@ func (this *StatScoreService) pegScore(val float64) float64 {
 	return 10.0
 }
 
-/**
+/*
+*
 趋势表示最近的市场情况，市值，pe的下降，价格更为便宜
 */
-func (this *StatScoreService) calTrendScore(statScore *entity.StatScore) {
-	score := this.increaseScore(statScore.LastPctChgMarketValue)
+func (svc *StatScoreService) calTrendScore(statScore *entity.StatScore) {
+	score := svc.increaseScore(statScore.LastPctChgMarketValue)
 	statScore.TrendScore += score
-	score = this.peScore(statScore.LastMeanPe)
+	score = svc.peScore(statScore.LastMeanPe)
 	statScore.TrendScore += score
-	score = this.pegScore(statScore.LastMeanPeg)
+	score = svc.pegScore(statScore.LastMeanPeg)
 	statScore.TrendScore += score
 	statScore.TrendScore = statScore.TrendScore * 10 / 3
 	if statScore.TrendScore > 90 {
@@ -664,17 +669,18 @@ func (this *StatScoreService) calTrendScore(statScore *entity.StatScore) {
 	//statScore.TotalScore += statScore.TrendScore
 }
 
-/**
+/*
+*
 景气度表示最新的业绩情况，销售和利润增长
 */
-func (this *StatScoreService) calProsScore(statScore *entity.StatScore) {
-	score := this.increaseScore(statScore.LastYoyDeduNp)
+func (svc *StatScoreService) calProsScore(statScore *entity.StatScore) {
+	score := svc.increaseScore(statScore.LastYoyDeduNp)
 	statScore.ProsScore += score
-	score = this.increaseScore(statScore.LastYoySales)
+	score = svc.increaseScore(statScore.LastYoySales)
 	statScore.ProsScore += score
-	score = this.increaseScore(statScore.LastOrLastMonth)
+	score = svc.increaseScore(statScore.LastOrLastMonth)
 	statScore.ProsScore += score
-	score = this.increaseScore(statScore.LastNpLastMonth)
+	score = svc.increaseScore(statScore.LastNpLastMonth)
 	statScore.ProsScore += score
 	statScore.ProsScore = statScore.ProsScore * 2.5
 	if statScore.ProsScore > 90 {
@@ -687,15 +693,16 @@ func (this *StatScoreService) calProsScore(statScore *entity.StatScore) {
 	statScore.TotalScore += statScore.ProsScore
 }
 
-/**
+/*
+*
 累计增长
 */
-func (this *StatScoreService) calAccScore(statScore *entity.StatScore) {
-	score := this.increaseScore(statScore.AccPctChgMarketValue)
+func (svc *StatScoreService) calAccScore(statScore *entity.StatScore) {
+	score := svc.increaseScore(statScore.AccPctChgMarketValue)
 	statScore.AccScore += score
-	score = this.increaseScore(statScore.AccYoyDeduNp)
+	score = svc.increaseScore(statScore.AccYoyDeduNp)
 	statScore.AccScore += score
-	score = this.increaseScore(statScore.AccYoySales)
+	score = svc.increaseScore(statScore.AccYoySales)
 	statScore.AccScore += score
 	statScore.AccScore = statScore.AccScore * 10 / 3
 	if statScore.AccScore > 90 {
@@ -708,25 +715,25 @@ func (this *StatScoreService) calAccScore(statScore *entity.StatScore) {
 	statScore.TotalScore += statScore.AccScore
 }
 
-func (this *StatScoreService) calRiskScore(statScore *entity.StatScore) {
-	score := this.reportNumberScore(statScore)
+func (svc *StatScoreService) calRiskScore(statScore *entity.StatScore) {
+	score := svc.reportNumberScore(statScore)
 	if score <= 2 {
 		statScore.RiskScore = 0.0
 	} else {
-		score = this.industryScore(statScore)
+		score = svc.industryScore(statScore)
 		statScore.RiskScore += score
-		score = this.areaScore(statScore)
+		score = svc.areaScore(statScore)
 		statScore.RiskScore += score
-		score = this.marketScore(statScore)
+		score = svc.marketScore(statScore)
 		statScore.RiskScore += score
-		score = this.listScore(statScore)
+		score = svc.listScore(statScore)
 		statScore.RiskScore += score
 		statScore.RiskScore = statScore.RiskScore * 2.5
 		statScore.TotalScore += statScore.RiskScore
 	}
 }
 
-func (this *StatScoreService) reportNumberScore(statScore *entity.StatScore) float64 {
+func (svc *StatScoreService) reportNumberScore(statScore *entity.StatScore) float64 {
 	reportNumber := statScore.ReportNumber
 	term := statScore.Term
 	if term == 0 {
@@ -754,7 +761,7 @@ func (this *StatScoreService) reportNumberScore(statScore *entity.StatScore) flo
 	return score
 }
 
-func (this *StatScoreService) industryScore(statScore *entity.StatScore) float64 {
+func (svc *StatScoreService) industryScore(statScore *entity.StatScore) float64 {
 	blackRules := []string{"中成药", "渔业", "种植业"}
 	grayRules := []string{"航空", "工程机械"}
 	greenRules := []string{"医疗保健", "互联网", "IT设备", "生物制药", "半导体", "元器件", "环境保护"}
@@ -780,7 +787,7 @@ func (this *StatScoreService) industryScore(statScore *entity.StatScore) float64
 	return 5.0
 }
 
-func (this *StatScoreService) areaScore(statScore *entity.StatScore) float64 {
+func (svc *StatScoreService) areaScore(statScore *entity.StatScore) float64 {
 	blackRules := []string{"辽宁", "新疆", "黑龙江", "三板股", "吉林", "内蒙"}
 	grayRules := []string{"甘肃", "河北", "青海", "宁夏"}
 	greenRules := []string{"深圳", "广东", "江苏", "浙江", "上海"}
@@ -806,10 +813,10 @@ func (this *StatScoreService) areaScore(statScore *entity.StatScore) float64 {
 	return 5.0
 }
 
-func (this *StatScoreService) marketScore(statScore *entity.StatScore) float64 {
+func (svc *StatScoreService) marketScore(statScore *entity.StatScore) float64 {
 	blackRules := []string{"深交所风险警示板", "老三板", "科创板", "新三板", "上交所科创板", "北交所"}
 	grayRules := []string{"中小板"}
-	greenRules := []string{}
+	var greenRules []string
 	market := statScore.Market
 	for _, black := range blackRules {
 		if market == black {
@@ -832,7 +839,7 @@ func (this *StatScoreService) marketScore(statScore *entity.StatScore) float64 {
 	return 5.0
 }
 
-func (this *StatScoreService) listScore(statScore *entity.StatScore) float64 {
+func (svc *StatScoreService) listScore(statScore *entity.StatScore) float64 {
 	listStatus := statScore.ListStatus
 	listDate := statScore.ListDate
 	if listStatus == "D" || listStatus == "P" {
@@ -857,10 +864,8 @@ func (this *StatScoreService) listScore(statScore *entity.StatScore) float64 {
 	return float64(diff)
 }
 
-/**
-计算股票季度业绩统计评分数据中位数，最大值和最小值，并返回结果，方便进行去极值和标准化
-*/
-func (this *StatScoreService) CreateScorePercentile() (int64, error) {
+// CreateScorePercentile 计算股票季度业绩统计评分数据中位数，最大值和最小值，并返回结果，方便进行去极值和标准化
+func (svc *StatScoreService) CreateScorePercentile() (int64, error) {
 	jsonHeads := []string{"percentile_risk_score", "percentile_stable_score", "percentile_acc_score", "percentile_pros_score", "percentile_trend_score", "percentile_increase_score",
 		"percentile_corr_score", "percentile_operation_score", "percentile_price_score", "percentile_total_score"}
 	jsonMap, _, _ := stock.GetJsonMap(entity.StatScore{})
@@ -887,7 +892,7 @@ func (this *StatScoreService) CreateScorePercentile() (int64, error) {
 	sql = sql + " group by term"
 	sql += ") stat where stat.term=ss.term"
 	paras := make([]interface{}, 0)
-	result, err := this.Exec(sql, paras...)
+	result, err := svc.Exec(sql, paras...)
 	if err != nil {
 		return 0, err
 	}
@@ -899,7 +904,10 @@ func (this *StatScoreService) CreateScorePercentile() (int64, error) {
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.StatScore))
+	err := service.GetSession().Sync(new(entity.StatScore))
+	if err != nil {
+		return
+	}
 	statScoreService.OrmBaseService.GetSeqName = statScoreService.GetSeqName
 	statScoreService.OrmBaseService.FactNewEntity = statScoreService.NewEntity
 	statScoreService.OrmBaseService.FactNewEntities = statScoreService.NewEntities

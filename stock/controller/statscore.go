@@ -9,16 +9,14 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// StatScoreController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type StatScoreController struct {
 	controller.BaseController
 }
 
 var statScoreController *StatScoreController
 
-func (this *StatScoreController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *StatScoreController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.StatScore, 0)
 	err := message.Unmarshal(json, &entities)
 
@@ -36,73 +34,97 @@ type StatScorePara struct {
 	TsCode       string   `json:"tscode,omitempty"`
 }
 
-func (this *StatScoreController) Search(ctx iris.Context) {
+func (ctl *StatScoreController) Search(ctx iris.Context) {
 	statScorePara := &StatScorePara{}
 	err := ctx.ReadJSON(&statScorePara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.StatScoreService)
+	svc := ctl.BaseService.(*service.StatScoreService)
 	ps, count, err := svc.Search(statScorePara.Keyword, statScorePara.TsCode, statScorePara.Terms, statScorePara.ScoreOptions, statScorePara.Orderby, statScorePara.From, statScorePara.Limit, statScorePara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-func (this *StatScoreController) RefreshStatScore(ctx iris.Context) {
-	svc := this.BaseService.(*service.StatScoreService)
+func (ctl *StatScoreController) RefreshStatScore(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.StatScoreService)
 	err := svc.RefreshStatScore()
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (this *StatScoreController) CreateScorePercentile(ctx iris.Context) {
-	svc := this.BaseService.(*service.StatScoreService)
+func (ctl *StatScoreController) CreateScorePercentile(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.StatScoreService)
 	_, err := svc.CreateScorePercentile()
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (this *StatScoreController) GetUpdateStatScore(ctx iris.Context) {
+func (ctl *StatScoreController) GetUpdateStatScore(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.StatScoreService)
-	var ts_code string
+	svc := ctl.BaseService.(*service.StatScoreService)
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err = ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.GetUpdateStatScore(ts_code)
+	ps, err := svc.GetUpdateStatScore(tsCode)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
-/**
-注册bean管理器，注册序列
-*/
-
+// 注册bean管理器，注册序列
 func init() {
 	statScoreController = &StatScoreController{
 		BaseController: controller.BaseController{

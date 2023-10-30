@@ -9,16 +9,14 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/**
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// QStatController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type QStatController struct {
 	controller.BaseController
 }
 
 var qstatController *QStatController
 
-func (this *QStatController) ParseJSON(json []byte) (interface{}, error) {
+func (ctl *QStatController) ParseJSON(json []byte) (interface{}, error) {
 	var entities = make([]*entity.QStat, 0)
 	err := message.Unmarshal(json, &entities)
 
@@ -26,6 +24,9 @@ func (this *QStatController) ParseJSON(json []byte) (interface{}, error) {
 }
 
 type QStatPara struct {
+	TsCode        string   `json:"ts_code,omitempty"`
+	Source        string   `json:"source,omitempty"`
+	SourceName    string   `json:"source_name,omitempty"`
 	Terms         []int    `json:"terms,omitempty"`
 	SourceOptions []string `json:"source_options,omitempty"`
 	From          int      `json:"from,omitempty"`
@@ -35,107 +36,116 @@ type QStatPara struct {
 	Keyword       string   `json:"keyword,omitempty"`
 }
 
-func (this *QStatController) Search(ctx iris.Context) {
+func (ctl *QStatController) Search(ctx iris.Context) {
 	qstatPara := &QStatPara{}
 	err := ctx.ReadJSON(&qstatPara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.QStatService)
+	svc := ctl.BaseService.(*service.QStatService)
 	ps, count, err := svc.Search(qstatPara.Keyword, qstatPara.Terms, qstatPara.SourceOptions, qstatPara.From, qstatPara.Limit, qstatPara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 		return
 	}
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
-	ctx.JSON(result)
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
 }
 
-func (this *QStatController) FindQStat(ctx iris.Context) {
-	params := make(map[string]interface{})
-	err := ctx.ReadJSON(&params)
+func (ctl *QStatController) FindQStatBy(ctx iris.Context) {
+	qstatPara := &QStatPara{}
+	err := ctx.ReadJSON(&qstatPara)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
 	svc := service.GetQStatService()
-	var ts_code string
-	v, ok := params["ts_code"]
-	if ok {
-		ts_code = v.(string)
-	}
-	var term int
-	v, ok = params["term"]
-	if ok {
-		f, ok := v.(float64)
-		if ok && f > 0 {
-			term = int(f)
-		}
-	}
-	var source string
-	v, ok = params["source"]
-	if ok {
-		source = v.(string)
-	}
-	var sourceName string
-	v, ok = params["sourceName"]
-	if ok {
-		sourceName = v.(string)
-	}
-	terms := []int{term}
-	ps, err := svc.FindQStat(ts_code, terms, source, sourceName)
+	ps, count, err := svc.FindQStatBy(qstatPara.TsCode, qstatPara.Terms, qstatPara.Source, qstatPara.SourceName, qstatPara.Orderby, qstatPara.From, qstatPara.Limit, qstatPara.Count)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	ctx.JSON(ps)
-}
-
-func (this *QStatController) RefreshQStat(ctx iris.Context) {
-	svc := this.BaseService.(*service.QStatService)
-	err := svc.RefreshQStat()
+	result := make(map[string]interface{})
+	result["data"] = ps
+	result["count"] = count
+	err = ctx.JSON(result)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		return
 	}
 }
 
-func (this *QStatController) GetUpdateQStat(ctx iris.Context) {
+func (ctl *QStatController) RefreshQStat(ctx iris.Context) {
+	svc := ctl.BaseService.(*service.QStatService)
+	err := svc.RefreshQStat()
+	if err != nil {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+	}
+}
+
+func (ctl *QStatController) GetUpdateQStat(ctx iris.Context) {
 	params := make(map[string]interface{})
 	err := ctx.ReadJSON(&params)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 
 		return
 	}
-	svc := this.BaseService.(*service.QStatService)
-	var ts_code string
+	svc := ctl.BaseService.(*service.QStatService)
+	var tsCode string
 	v, ok := params["ts_code"]
 	if ok {
-		ts_code = v.(string)
+		tsCode = v.(string)
 	}
-	if ts_code == "" {
+	if tsCode == "" {
 		ps := make([]interface{}, 0)
-		ctx.JSON(ps)
+		err := ctx.JSON(ps)
+		if err != nil {
+			return
+		}
 		return
 	}
-	ps, err := svc.GetUpdateQStat(ts_code)
+	ps, err := svc.GetUpdateQStat(tsCode)
 	if err != nil {
-		ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
 	}
 
-	ctx.JSON(ps)
+	err = ctx.JSON(ps)
+	if err != nil {
+		return
+	}
 }
 
-/**
-注册bean管理器，注册序列
-*/
-
+// 注册bean管理器，注册序列
 func init() {
 	qstatController = &QStatController{
 		BaseController: controller.BaseController{

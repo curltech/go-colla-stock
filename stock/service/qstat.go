@@ -11,7 +11,7 @@ import (
 	"github.com/curltech/go-colla-core/util/reflect"
 	"github.com/curltech/go-colla-core/util/thread"
 	"github.com/curltech/go-colla-stock/stock"
-	entity "github.com/curltech/go-colla-stock/stock/entity"
+	"github.com/curltech/go-colla-stock/stock/entity"
 	"math"
 	"strings"
 	"sync"
@@ -30,24 +30,24 @@ func GetQStatService() *QStatService {
 	return qstatService
 }
 
-func (this *QStatService) GetSeqName() string {
+func (svc *QStatService) GetSeqName() string {
 	return seqname
 }
 
-func (this *QStatService) NewEntity(data []byte) (interface{}, error) {
-	entity := &entity.QStat{}
+func (svc *QStatService) NewEntity(data []byte) (interface{}, error) {
+	qstat := &entity.QStat{}
 	if data == nil {
-		return entity, nil
+		return qstat, nil
 	}
-	err := message.Unmarshal(data, entity)
+	err := message.Unmarshal(data, qstat)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity, err
+	return qstat, err
 }
 
-func (this *QStatService) NewEntities(data []byte) (interface{}, error) {
+func (svc *QStatService) NewEntities(data []byte) (interface{}, error) {
 	entities := make([]*entity.QStat, 0)
 	if data == nil {
 		return &entities, nil
@@ -60,7 +60,7 @@ func (this *QStatService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (this *QStatService) Search(keyword string, terms []int, sourceOptions []string, from int, limit int, count int64) ([]*entity.QStat, int64, error) {
+func (svc *QStatService) Search(keyword string, terms []int, sourceOptions []string, from int, limit int, count int64) ([]*entity.QStat, int64, error) {
 	termConds, termParas := stock.InBuildInt("term", terms)
 	paras := make([]interface{}, 0)
 	conds := termConds
@@ -81,13 +81,13 @@ func (this *QStatService) Search(keyword string, terms []int, sourceOptions []st
 	var err error
 	condiBean := &entity.QStat{}
 	if count == 0 {
-		count, err = this.Count(condiBean, conds, paras...)
+		count, err = svc.Count(condiBean, conds, paras...)
 		if err != nil {
 			return nil, count, err
 		}
 	}
 	orderby := "tscode,term,startdate desc"
-	err = this.Find(&qstats, nil, orderby, from, limit, conds, paras...)
+	err = svc.Find(&qstats, nil, orderby, from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err
 	}
@@ -95,12 +95,48 @@ func (this *QStatService) Search(keyword string, terms []int, sourceOptions []st
 	return qstats, count, nil
 }
 
-/*
-*
-查询股票季度业绩统计数据
-*/
-func (this *QStatService) FindQStat(ts_code string, terms []int, source string, sourceName string) (map[string]map[int][]interface{}, error) {
-	tscodeConds, tscodeParas := stock.InBuildStr("tscode", ts_code, ",")
+// FindQStatBy 查询股票季度业绩统计数据
+func (svc *QStatService) FindQStatBy(tsCode string, terms []int, source string, sourceName string, orderby string, from int, limit int, count int64) ([]*entity.QStat, int64, error) {
+	tscodeConds, tscodeParas := stock.InBuildStr("tscode", tsCode, ",")
+	termConds, termParas := stock.InBuildInt("term", terms)
+	paras := make([]interface{}, 0)
+	conds := tscodeConds + " and " + termConds
+	paras = append(paras, tscodeParas...)
+	paras = append(paras, termParas...)
+	if source != "" {
+		conds = conds + " and source=?"
+		paras = append(paras, source)
+	}
+	if sourceName != "" {
+		conds = conds + " and sourcename=?"
+		paras = append(paras, sourceName)
+	}
+	var err error
+	condiBean := &entity.QStat{}
+	if count == 0 {
+		count, err = svc.Count(condiBean, conds, paras...)
+		if err != nil {
+			return nil, count, err
+		}
+	}
+	if orderby == "" {
+		orderby = "tscode,term,source,sourcename"
+	}
+	qstats := make([]*entity.QStat, 0)
+	if limit == 0 {
+		limit = 10
+	}
+	err = svc.Find(&qstats, nil, orderby, from, limit, conds, paras...)
+	if err != nil {
+		return nil, count, err
+	}
+
+	return qstats, count, nil
+}
+
+// FindQStat 查询股票季度业绩统计数据
+func (svc *QStatService) FindQStat(tsCode string, terms []int, source string, sourceName string) (map[string]map[int][]interface{}, error) {
+	tscodeConds, tscodeParas := stock.InBuildStr("tscode", tsCode, ",")
 	termConds, termParas := stock.InBuildInt("term", terms)
 	paras := make([]interface{}, 0)
 	sql := tscodeConds + " and " + termConds
@@ -115,15 +151,15 @@ func (this *QStatService) FindQStat(ts_code string, terms []int, source string, 
 		paras = append(paras, sourceName)
 	}
 	qstats := make([]*entity.QStat, 0)
-	err := this.Find(&qstats, nil, "tscode,term,source,sourcename", 0, 0, sql, paras...)
+	err := svc.Find(&qstats, nil, "tscode,term,source,sourcename", 0, 0, sql, paras...)
 	if err != nil {
 		return nil, err
 	}
-	qpMap := make(map[string]map[int][]interface{}, 0)
+	qpMap := make(map[string]map[int][]interface{})
 	for _, qstat := range qstats {
 		psMap, ok := qpMap[qstat.TsCode]
 		if !ok {
-			psMap = make(map[int][]interface{}, 0)
+			psMap = make(map[int][]interface{})
 			qpMap[qstat.TsCode] = psMap
 		}
 		ps, ok := psMap[qstat.Term]
@@ -137,11 +173,8 @@ func (this *QStatService) FindQStat(ts_code string, terms []int, source string, 
 	return qpMap, nil
 }
 
-/*
-*
-计算股票季度业绩统计数据中位数，最大值和最小值，并返回结果，方便进行去极值和标准化
-*/
-func (this *QStatService) FindQStatMedian() (map[string]*entity.QStat, error) {
+// FindQStatMedian 计算股票季度业绩统计数据中位数，最大值和最小值，并返回结果，方便进行去极值和标准化
+func (svc *QStatService) FindQStatMedian() (map[string]*entity.QStat, error) {
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QStat{})
 	sql := "select source as source,sourcename as source_name,term as term"
 	for _, jsonHead := range jsonHeads[17:] {
@@ -154,15 +187,15 @@ func (this *QStatService) FindQStatMedian() (map[string]*entity.QStat, error) {
 	sql = sql + " group by source,sourcename,term"
 	sql = sql + " order by source,sourcename,term"
 	paras := make([]interface{}, 0)
-	results, err := this.Query(sql, paras...)
+	results, err := svc.Query(sql, paras...)
 	if err != nil {
 		return nil, err
 	}
-	medianMap := make(map[string]*entity.QStat, 0)
+	medianMap := make(map[string]*entity.QStat)
 	for _, result := range results {
 		median := &entity.QStat{}
-		max := &entity.QStat{}
-		min := &entity.QStat{}
+		qstatmax := &entity.QStat{}
+		qstatmin := &entity.QStat{}
 		for colname, v := range result {
 			s := string(v)
 			if s != "" {
@@ -171,14 +204,14 @@ func (this *QStatService) FindQStatMedian() (map[string]*entity.QStat, error) {
 					err = reflect.Set(median, jsonMap[colname], s)
 				} else if strings.HasPrefix(colname, "max_") {
 					colname = strings.TrimPrefix(colname, "max_")
-					err = reflect.Set(max, jsonMap[colname], s)
+					err = reflect.Set(qstatmax, jsonMap[colname], s)
 				} else if strings.HasPrefix(colname, "min_") {
 					colname = strings.TrimPrefix(colname, "min_")
-					err = reflect.Set(min, jsonMap[colname], s)
+					err = reflect.Set(qstatmin, jsonMap[colname], s)
 				} else {
 					err = reflect.Set(median, jsonMap[colname], s)
-					err = reflect.Set(max, jsonMap[colname], s)
-					err = reflect.Set(min, jsonMap[colname], s)
+					err = reflect.Set(qstatmax, jsonMap[colname], s)
+					err = reflect.Set(qstatmin, jsonMap[colname], s)
 				}
 				if err != nil {
 					logger.Sugar.Errorf("Set colname %v value %v error:%v", colname, s, err.Error())
@@ -187,21 +220,18 @@ func (this *QStatService) FindQStatMedian() (map[string]*entity.QStat, error) {
 		}
 		key := median.Source + ":" + median.SourceName + ":" + fmt.Sprint(median.Term)
 		medianMap["median"+":"+key] = median
-		medianMap["max"+":"+key] = max
-		medianMap["min"+":"+key] = min
+		medianMap["max"+":"+key] = qstatmax
+		medianMap["min"+":"+key] = qstatmin
 	}
 
 	return medianMap, nil
 }
 
-/*
-*
-删除股票季度业绩统计数据
-*/
-func (this *QStatService) deleteQStat(ts_code string) error {
-	conds, paras := stock.InBuildStr("tscode", ts_code, ",")
+// 删除股票季度业绩统计数据
+func (svc *QStatService) deleteQStat(tsCode string) error {
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
 	qstat := &entity.QStat{}
-	_, err := this.Delete(qstat, conds, paras...)
+	_, err := svc.Delete(qstat, conds, paras...)
 	if err != nil {
 		return err
 	}
@@ -209,19 +239,16 @@ func (this *QStatService) deleteQStat(ts_code string) error {
 	return nil
 }
 
-/*
-*
-对某个统计指标计算minmax标准化
-*/
-func (this *QStatService) MinmaxStd(q *entity.QStat, fieldname string) float64 {
+// MinmaxStd 对某个统计指标计算minmax标准化
+func (svc *QStatService) MinmaxStd(q *entity.QStat, fieldname string) float64 {
 	key := q.Source + ":" + q.SourceName + ":" + fmt.Sprint(q.Term)
 
-	max, ok := this.MedianMap["max"+":"+key]
+	maxv, ok := svc.MedianMap["max"+":"+key]
 	if !ok {
 		logger.Sugar.Errorf("MedianMap no max key:%v", key)
 		return 0
 	}
-	v, err := reflect.GetValue(max, fieldname)
+	v, err := reflect.GetValue(maxv, fieldname)
 	if err != nil {
 		logger.Sugar.Errorf("Max GetValue no value fieldname:%v", fieldname)
 		return 0
@@ -230,12 +257,12 @@ func (this *QStatService) MinmaxStd(q *entity.QStat, fieldname string) float64 {
 	if !ok {
 		return 0
 	}
-	min, ok := this.MedianMap["min"+":"+key]
+	minv, ok := svc.MedianMap["min"+":"+key]
 	if !ok {
 		logger.Sugar.Errorf("MedianMap no min key:%v", key)
 		return 0
 	}
-	v, err = reflect.GetValue(min, fieldname)
+	v, err = reflect.GetValue(minv, fieldname)
 	if err != nil {
 		logger.Sugar.Errorf("Min GetValue no value fieldname:%v", fieldname)
 		return 0
@@ -265,16 +292,13 @@ func (this *QStatService) MinmaxStd(q *entity.QStat, fieldname string) float64 {
 	return (val - minVal) / (maxVal - minVal)
 }
 
-/*
-*
-计算股票所有统计数据的Min，Max，并保存
-*/
-func (this *QStatService) GetQStatMedian() error {
-	this.Locker.Lock()
-	defer this.Locker.Unlock()
+// GetQStatMedian 计算股票所有统计数据的Min，Max，并保存
+func (svc *QStatService) GetQStatMedian() error {
+	svc.Locker.Lock()
+	defer svc.Locker.Unlock()
 	var err error
-	if this.MedianMap == nil {
-		this.MedianMap, err = this.FindQStatMedian()
+	if svc.MedianMap == nil {
+		svc.MedianMap, err = svc.FindQStatMedian()
 		if err != nil {
 			logger.Sugar.Errorf("Error:%v", err.Error())
 			return err
@@ -284,18 +308,15 @@ func (this *QStatService) GetQStatMedian() error {
 	return nil
 }
 
-/*
-*
-刷新所有股票的季度业绩统计数据
-*/
-func (this *QStatService) RefreshQStat() error {
+// RefreshQStat 刷新所有股票的季度业绩统计数据
+func (svc *QStatService) RefreshQStat() error {
 	processLog := GetProcessLogService().StartLog("qstat", "RefreshQStat", "")
-	routinePool := thread.CreateRoutinePool(10, this.AsyncUpdateQStat, nil)
+	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateQStat, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
-	for _, ts_code := range ts_codes {
+	tsCodes, _ := GetShareService().GetCacheShare()
+	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
-		para = append(para, ts_code)
+		para = append(para, tsCode)
 		routinePool.Invoke(para)
 	}
 	routinePool.Wait(nil)
@@ -308,38 +329,41 @@ func (this *QStatService) RefreshQStat() error {
 	return nil
 }
 
-func (this *QStatService) AsyncUpdateQStat(para interface{}) {
+func (svc *QStatService) AsyncUpdateQStat(para interface{}) {
 	tscode := (para.([]interface{}))[0].(string)
-	this.GetUpdateQStat(tscode)
+	_, err := svc.GetUpdateQStat(tscode)
+	if err != nil {
+		return
+	}
 }
 
-/*
-*
-更新股票季度业绩统计数据，并返回结果
-*/
-func (this *QStatService) GetUpdateQStat(tscode string) ([]interface{}, error) {
+// GetUpdateQStat 更新股票季度业绩统计数据，并返回结果
+func (svc *QStatService) GetUpdateQStat(tscode string) ([]interface{}, error) {
 	var ps []interface{}
 	var err error
 	//processLog := GetProcessLogService().StartLog("qstat", "GetUpdateQStat", tscode)
-	this.deleteQStat(tscode)
-	//for _, term := range this.Terms {
-	//	ps, err = this.UpdateQStatBySql(tscode, term)
+	err = svc.deleteQStat(tscode)
+	if err != nil {
+		return nil, err
+	}
+	//for _, term := range svc.Terms {
+	//	ps, err = svc.UpdateQStatBySql(tscode, term)
 	//}
-	ps, err = this.UpdateQStat(tscode, this.Terms)
+	ps, err = svc.UpdateQStat(tscode, svc.Terms)
 	if err != nil {
 		//GetProcessLogService().EndLog(processLog, "", err.Error())
 		return ps, err
 	}
-	GetStatScoreService().GetUpdateStatScore(tscode)
+	_, err = GetStatScoreService().GetUpdateStatScore(tscode)
+	if err != nil {
+		return nil, err
+	}
 
 	return ps, err
 }
 
-/*
-*
-通过内存更新股票季度业绩统计数据，并返回结果
-*/
-func (this *QStatService) UpdateQStat(tscode string, terms []int) ([]interface{}, error) {
+// UpdateQStat 通过内存更新股票季度业绩统计数据，并返回结果
+func (svc *QStatService) UpdateQStat(tscode string, terms []int) ([]interface{}, error) {
 	//获取降序的记录
 	qpMap, err := GetQPerformanceService().FindStdQPerformance(tscode, nil, "", "", StdtypeNone, false)
 	if err != nil {
@@ -355,7 +379,7 @@ func (this *QStatService) UpdateQStat(tscode string, terms []int) ([]interface{}
 		return nil, errors.New("qterm is nil")
 	}
 	//获取每个term的统计数据，数据降序排列
-	statMap := this.FindAllQStat(qpMap, qtermMap)
+	statMap := svc.FindAllQStat(qpMap, qtermMap)
 	if len(statMap) <= 0 {
 		logger.Sugar.Errorf("tscode:%v Error:%v", tscode, "qstats len is 0")
 		return nil, errors.New("qstats len is 0")
@@ -366,23 +390,23 @@ func (this *QStatService) UpdateQStat(tscode string, terms []int) ([]interface{}
 			ps = append(ps, qstat)
 		}
 	}
-	_, err = this.Insert(ps...)
+	_, err = svc.Insert(ps...)
 	if err != nil {
 		logger.Sugar.Errorf("tscode:%v Error: %s", tscode, err.Error())
 		return nil, err
 	}
 	//更新排名统计数据
-	//go this.UpdatePercentRank(tscode, qtermMap)
+	//go svc.UpdatePercentRank(tscode, qtermMap)
 
 	return ps, err
 }
 
-func (this *QStatService) UpdatePercentRank(tscode string, qtermMap map[string]map[int]*QTerm) ([]interface{}, error) {
+func (svc *QStatService) UpdatePercentRank(tscode string, qtermMap map[string]map[int]*QTerm) ([]interface{}, error) {
 	ps := make([]interface{}, 0)
 	//更新排名统计数据
-	for ts_code, qterms := range qtermMap {
+	for tsCode, qterms := range qtermMap {
 		for _, qterm := range qterms {
-			qstats, err := this.FindPercentRank(ts_code, qterm)
+			qstats, err := svc.FindPercentRank(tsCode, qterm)
 			if err == nil {
 				for _, qstat := range qstats {
 					ps = append(ps, qstat)
@@ -391,7 +415,7 @@ func (this *QStatService) UpdatePercentRank(tscode string, qtermMap map[string]m
 		}
 	}
 
-	_, err := this.Insert(ps...)
+	_, err := svc.Insert(ps...)
 	if err != nil {
 		logger.Sugar.Errorf("tscode:%v Error: %s", tscode, err.Error())
 		return nil, err
@@ -400,17 +424,17 @@ func (this *QStatService) UpdatePercentRank(tscode string, qtermMap map[string]m
 	return ps, err
 }
 
-func (this *QStatService) FindPercentRank(tscode string, qterm *QTerm) ([]*entity.QStat, error) {
+func (svc *QStatService) FindPercentRank(tscode string, qterm *QTerm) ([]*entity.QStat, error) {
 	qss := make([]*entity.QStat, 0)
-	qstats, err := this.findPercentRank("tscode", tscode, qterm)
+	qstats, err := svc.findPercentRank("tscode", tscode, qterm)
 	if err == nil {
 		qss = append(qss, qstats...)
 	}
-	qstats, err = this.findPercentRank("industry", tscode, qterm)
+	qstats, err = svc.findPercentRank("industry", tscode, qterm)
 	if err == nil {
 		qss = append(qss, qstats...)
 	}
-	qstats, err = this.findPercentRank("sector", tscode, qterm)
+	qstats, err = svc.findPercentRank("sector", tscode, qterm)
 	if err == nil {
 		qss = append(qss, qstats...)
 	}
@@ -418,7 +442,7 @@ func (this *QStatService) FindPercentRank(tscode string, qterm *QTerm) ([]*entit
 	return qss, nil
 }
 
-func (this *QStatService) findPercentRank(rankType string, tscode string, qterm *QTerm) ([]*entity.QStat, error) {
+func (svc *QStatService) findPercentRank(rankType string, tscode string, qterm *QTerm) ([]*entity.QStat, error) {
 	qstats := make([]*entity.QStat, 0)
 	startDate := qterm.StartDate
 	endDate := qterm.EndDate
@@ -428,7 +452,7 @@ func (this *QStatService) findPercentRank(rankType string, tscode string, qterm 
 	}
 	reportNumber := len(qps)
 	for _, qp := range qps {
-		qstat := this.toQStat(qp, qterm)
+		qstat := svc.toQStat(qp, qterm)
 		qstat.Source = "rank"
 		qstat.SourceName = rankType
 		qstat.Id = 0
@@ -443,13 +467,10 @@ func (this *QStatService) findPercentRank(rankType string, tscode string, qterm 
 	return qstats, nil
 }
 
-/*
-*
-通过内存计算股票季度业绩全部统计数据，并返回结果，原始数据降序排列
-*/
-func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, qtermMap map[string]map[int]*QTerm) map[string][]interface{} {
+// FindAllQStat 通过内存计算股票季度业绩全部统计数据，并返回结果，原始数据降序排列
+func (svc *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, qtermMap map[string]map[int]*QTerm) map[string][]interface{} {
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QPerformance{})
-	qstatMap := make(map[string][]interface{}, 0)
+	qstatMap := make(map[string][]interface{})
 	for tscode, qps := range qpMap {
 		if len(qps) == 0 {
 			continue
@@ -464,9 +485,9 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 		}
 		//最新的数据，所有的累计值都是与last值的比较
 		last := qps[0]
-		psMap := make(map[int][]interface{}, 0)
+		psMap := make(map[int][]interface{})
 		//每个term的前一个记录，用于计算累计增长
-		preMap := make(map[int]interface{}, 0)
+		preMap := make(map[int]interface{})
 		for _, qp := range qps {
 			qdate := qp.QDate
 			for term, qterm := range qterms {
@@ -492,7 +513,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				reportNumber := len(ps)
 				stat := stock.CreateStat(ps, jsonHeads[14:])
 				sum := stat.CalSum()
-				qstat := this.toQStat(sum, qterm)
+				qstat := svc.toQStat(sum, qterm)
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
 				qstat.SecurityName = last.SecurityName
@@ -501,8 +522,8 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				qstat.Source = "sum"
 				qstat.ReportNumber = reportNumber
 				qstats = append(qstats, qstat)
-				max := stat.Max
-				qstat = this.toQStat(max, qterm)
+				statmax := stat.Max
+				qstat = svc.toQStat(statmax, qterm)
 				qstat.Source = "max"
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
@@ -511,8 +532,8 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				qstat.Sector = last.Sector
 				qstat.ReportNumber = reportNumber
 				qstats = append(qstats, qstat)
-				min := stat.Min
-				qstat = this.toQStat(min, qterm)
+				statmin := stat.Min
+				qstat = svc.toQStat(statmin, qterm)
 				qstat.Source = "min"
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
@@ -522,7 +543,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				qstat.ReportNumber = reportNumber
 				qstats = append(qstats, qstat)
 				mean := stat.CalMean()
-				qstat = this.toQStat(mean, qterm)
+				qstat = svc.toQStat(mean, qterm)
 				qstat.Source = "mean"
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
@@ -532,7 +553,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				qstat.ReportNumber = reportNumber
 				qstats = append(qstats, qstat)
 				medians := stat.CalMedian()
-				qstat = this.toQStat(medians[1], qterm)
+				qstat = svc.toQStat(medians[1], qterm)
 				qstat.Source = "median"
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
@@ -542,7 +563,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				qstat.ReportNumber = reportNumber
 				qstats = append(qstats, qstat)
 				stddev := stat.CalStddev()
-				qstat = this.toQStat(stddev, qterm)
+				qstat = svc.toQStat(stddev, qterm)
 				qstat.Source = "stddev"
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
@@ -552,7 +573,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				qstat.ReportNumber = reportNumber
 				qstats = append(qstats, qstat)
 				rsd := stat.CalRsd()
-				qstat = this.toQStat(rsd, qterm)
+				qstat = svc.toQStat(rsd, qterm)
 				qstat.Source = "rsd"
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
@@ -562,7 +583,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				qstat.ReportNumber = reportNumber
 				qstats = append(qstats, qstat)
 				cor := stat.CalCor("market_value")
-				qstat = this.toQStat(cor, qterm)
+				qstat = svc.toQStat(cor, qterm)
 				qstat.Id = 0
 				qstat.TsCode = last.TsCode
 				qstat.SecurityName = last.SecurityName
@@ -578,7 +599,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 				if ok {
 					pre = v.(*entity.QPerformance)
 				}
-				acc := this.FindAcc(ps, qterm, pre)
+				acc := svc.FindAcc(ps, qterm, pre)
 				if acc != nil {
 					qstats = append(qstats, acc)
 				}
@@ -607,7 +628,7 @@ func (this *QStatService) FindAllQStat(qpMap map[string][]*entity.QPerformance, 
 	return qstatMap
 }
 
-func (this *QStatService) toQStat(val interface{}, qterm *QTerm) *entity.QStat {
+func (svc *QStatService) toQStat(val interface{}, qterm *QTerm) *entity.QStat {
 	qstat := &entity.QStat{}
 	bs, err := json.Marshal(val)
 	if err == nil {
@@ -623,8 +644,8 @@ func (this *QStatService) toQStat(val interface{}, qterm *QTerm) *entity.QStat {
 	return qstat
 }
 
-// 原始数据降序排列
-func (this *QStatService) FindAcc(ps []interface{}, qterm *QTerm, pre *entity.QPerformance) *entity.QStat {
+// FindAcc 原始数据降序排列
+func (svc *QStatService) FindAcc(ps []interface{}, qterm *QTerm, pre *entity.QPerformance) *entity.QStat {
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QPerformance{})
 	if pre == nil {
 		pre = ps[len(ps)-1].(*entity.QPerformance)
@@ -661,17 +682,17 @@ func (this *QStatService) FindAcc(ps []interface{}, qterm *QTerm, pre *entity.QP
 			endVal, _ := v.(float64)
 			diff := endVal - startVal
 			apr := (diff / math.Abs(startVal)) / float64(t) // stock.CalApr((endVal-startVal)/math.Abs(startVal)+1, float64(t))
-			reflect.SetValue(qs, fieldname, apr*100)
+			err := reflect.SetValue(qs, fieldname, apr*100)
+			if err != nil {
+				return nil
+			}
 		}
 	}
 	return qs
 }
 
-/*
-*
-通过数据库sql更新股票季度业绩统计数据，并返回结果
-*/
-func (this *QStatService) UpdateQStatBySql(tscode string, term int) ([]interface{}, error) {
+// UpdateQStatBySql 通过数据库sql更新股票季度业绩统计数据，并返回结果
+func (svc *QStatService) UpdateQStatBySql(tscode string, term int) ([]interface{}, error) {
 	qterm, err := GetQPerformanceService().GetQTermBySql(tscode, term)
 	if err != nil {
 		return nil, err
@@ -733,7 +754,7 @@ func (this *QStatService) UpdateQStatBySql(tscode string, term int) ([]interface
 			ps = append(ps, lastQStat)
 		}
 	}
-	_, err = this.Upsert(ps...)
+	_, err = svc.Upsert(ps...)
 	if err != nil {
 		logger.Sugar.Errorf("tscode:%v Error: %s", tscode, err.Error())
 		return nil, err
@@ -743,7 +764,10 @@ func (this *QStatService) UpdateQStatBySql(tscode string, term int) ([]interface
 }
 
 func init() {
-	service.GetSession().Sync(new(entity.QStat))
+	err := service.GetSession().Sync(new(entity.QStat))
+	if err != nil {
+		return
+	}
 	qstatService.OrmBaseService.GetSeqName = qstatService.GetSeqName
 	qstatService.OrmBaseService.FactNewEntity = qstatService.NewEntity
 	qstatService.OrmBaseService.FactNewEntities = qstatService.NewEntities

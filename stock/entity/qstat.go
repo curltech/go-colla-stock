@@ -31,7 +31,7 @@ type QStat struct {
 	PctChgClose        float64 `json:"pct_chg_close"`
 	PctChgMarketValue  float64 `json:"pct_chg_market_value"`
 	WeightAvgRoe       float64 `json:"weight_avg_roe"`
-	GrossprofitMargin  float64 `json:"gross_profit_margin"`
+	GrossProfitMargin  float64 `json:"gross_profit_margin"`
 	ParentNetProfit    float64 `json:"parent_net_profit"`
 	BasicEps           float64 `json:"basic_eps"`
 	OrLastMonth        float64 `json:"or_last_month"`

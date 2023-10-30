@@ -84,6 +84,7 @@ func (svc *QPerformanceService) FindByQDate(tsCode string, startDate string, end
 	if err != nil {
 		return nil, count, err
 	}
+
 	return ps, count, nil
 }
 

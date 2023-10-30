@@ -10,10 +10,7 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-/*
-*
-控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
-*/
+// QPerformanceController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，因此每个实体（外部rest方式访问）的控制层都需要写一遍
 type QPerformanceController struct {
 	controller.BaseController
 }
@@ -284,10 +281,7 @@ func (ctl *QPerformanceController) GetUpdateDayQPerformance(ctx iris.Context) {
 	}
 }
 
-/**
-注册bean管理器，注册序列
-*/
-
+// 注册bean管理器，注册序列
 func init() {
 	qperformanceController = &QPerformanceController{
 		BaseController: controller.BaseController{
