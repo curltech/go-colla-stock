@@ -31,7 +31,7 @@ type StatScorePara struct {
 	Orderby      string   `json:"orderby,omitempty"`
 	Count        int64    `json:"count,omitempty"`
 	Keyword      string   `json:"keyword,omitempty"`
-	TsCode       string   `json:"tscode,omitempty"`
+	TsCode       string   `json:"ts_code,omitempty"`
 }
 
 func (ctl *StatScoreController) Search(ctx iris.Context) {
