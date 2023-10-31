@@ -90,19 +90,18 @@ func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, 
 		orderby = "term"
 	} else {
 		for _, scoreOption := range scoreOptions {
-			if scoreOption == "TotalScore" {
+			if scoreOption == "totalScore" {
 				orderby = "totalscore"
 				break
 			} else {
 				if i == 0 {
 					orderby = scoreOption
 				} else {
-					orderby = orderby + "+" + scoreOption
+					orderby = orderby + "," + scoreOption + " desc"
 				}
 			}
 			i++
 		}
-		orderby = orderby + " desc"
 	}
 	err = svc.Find(&statScores, nil, orderby, from, limit, conds, paras...)
 	if err != nil {
