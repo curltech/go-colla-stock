@@ -57,7 +57,7 @@ func (svc *StatScoreService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, scoreOptions []string, orderby string, from int, limit int, count int64) ([]*entity.StatScore, int64, error) {
+func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, orderby string, from int, limit int, count int64) ([]*entity.StatScore, int64, error) {
 	termConds, termParas := stock.InBuildInt("term", terms)
 	paras := make([]interface{}, 0)
 	conds := termConds
@@ -83,31 +83,13 @@ func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, 
 		}
 	}
 	if orderby == "" {
-		orderby = "totalscore"
-	}
-	i := 0
-	if scoreOptions == nil || len(scoreOptions) == 0 {
-		orderby = "term"
-	} else {
-		for _, scoreOption := range scoreOptions {
-			if scoreOption == "totalScore" {
-				orderby = "totalscore"
-				break
-			} else {
-				if i == 0 {
-					orderby = scoreOption
-				} else {
-					orderby = orderby + "," + scoreOption + " desc"
-				}
-			}
-			i++
-		}
+		orderby = "tscode,term"
 	}
 	err = svc.Find(&statScores, nil, orderby, from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err
 	}
-	i = 1
+	i := 1
 	for _, statScore := range statScores {
 		statScore.Id = uint64(from + i)
 		i++

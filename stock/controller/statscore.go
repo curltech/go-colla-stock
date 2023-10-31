@@ -24,14 +24,13 @@ func (ctl *StatScoreController) ParseJSON(json []byte) (interface{}, error) {
 }
 
 type StatScorePara struct {
-	Terms        []int    `json:"terms,omitempty"`
-	ScoreOptions []string `json:"score_options,omitempty"`
-	From         int      `json:"from,omitempty"`
-	Limit        int      `json:"limit,omitempty"`
-	Orderby      string   `json:"orderby,omitempty"`
-	Count        int64    `json:"count,omitempty"`
-	Keyword      string   `json:"keyword,omitempty"`
-	TsCode       string   `json:"ts_code,omitempty"`
+	Terms   []int  `json:"terms,omitempty"`
+	From    int    `json:"from,omitempty"`
+	Limit   int    `json:"limit,omitempty"`
+	Orderby string `json:"orderby,omitempty"`
+	Count   int64  `json:"count,omitempty"`
+	Keyword string `json:"keyword,omitempty"`
+	TsCode  string `json:"ts_code,omitempty"`
 }
 
 func (ctl *StatScoreController) Search(ctx iris.Context) {
@@ -46,7 +45,7 @@ func (ctl *StatScoreController) Search(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.StatScoreService)
-	ps, count, err := svc.Search(statScorePara.Keyword, statScorePara.TsCode, statScorePara.Terms, statScorePara.ScoreOptions, statScorePara.Orderby, statScorePara.From, statScorePara.Limit, statScorePara.Count)
+	ps, count, err := svc.Search(statScorePara.Keyword, statScorePara.TsCode, statScorePara.Terms, statScorePara.Orderby, statScorePara.From, statScorePara.Limit, statScorePara.Count)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
