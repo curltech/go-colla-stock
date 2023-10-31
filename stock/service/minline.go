@@ -243,8 +243,12 @@ func (svc *MinLineService) findMinLines(tsCode string, tradeDate int64, tradeMin
 	minLines := make([]*entity.MinLine, 0)
 	condiBean := &entity.MinLine{}
 	condiBean.TsCode = tsCode
+	var err error
 	if tradeDate == 0 {
-		tradeDate = stock.CurrentDate()
+		tradeDate, _, err = svc.findMaxTradeDate(tsCode)
+		if err != nil {
+			tradeDate = stock.CurrentDate()
+		}
 	}
 	condiBean.TradeDate = tradeDate
 	conds := ""
@@ -254,7 +258,7 @@ func (svc *MinLineService) findMinLines(tsCode string, tradeDate int64, tradeMin
 		paras = make([]interface{}, 0)
 		paras = append(paras, tradeMinute)
 	}
-	err := svc.Find(&minLines, condiBean, "trademinute", 0, 0, conds, paras)
+	err = svc.Find(&minLines, condiBean, "trademinute", 0, 0, conds, paras)
 	if err != nil {
 		return nil, err
 	}

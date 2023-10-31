@@ -15,9 +15,9 @@ import (
 )
 
 // 获取某只股票最新的日期和分钟
-func (svc *MinLineService) findMaxTradeDate(secId string) (int64, int64, error) {
+func (svc *MinLineService) findMaxTradeDate(tsCode string) (int64, int64, error) {
 	cond := &entity.MinLine{}
-	cond.TsCode = secId
+	cond.TsCode = tsCode
 	minLines := make([]*entity.MinLine, 0)
 	err := svc.Find(&minLines, cond, "tradedate desc,trademinute desc", 0, 1, "")
 	if err != nil {
@@ -49,7 +49,7 @@ func (svc *MinLineService) GetMinLine(secId string, beg int, limit int, klt int)
 
 type TodayMinLineResponseData struct {
 	Code        string   `json:"code,omitempty"`
-	Market      string   `json:"market,omitempty"`
+	Market      int      `json:"market,omitempty"`
 	Name        string   `json:"name,omitempty"`
 	Decimal     int      `json:"decimal,omitempty"`     //小数位
 	TrendsTotal int      `json:"trendsTotal,omitempty"` //总记录数
