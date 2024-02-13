@@ -23,15 +23,39 @@ func (ctl *PoemController) ParseJSON(json []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (ctl *PoemController) ParsePath(ctx iris.Context) {
-	poemService := ctl.BaseService.(*service.PoemService)
-	err := poemService.ParsePath("C:\\go-workspace\\Poetry-master")
+type PoemPara struct {
+	entity.Poem
+	From  int `json:"from,omitempty"`
+	Limit int `json:"limit,omitempty"`
+}
+
+func (ctl *PoemController) Search(ctx iris.Context) {
+	param := &PoemPara{}
+	err := ctx.ReadJSON(param)
+	if err != nil {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+
+		return
+	}
+	svc := ctl.BaseService.(*service.PoemService)
+	poems, err := svc.Search(param.Title, param.Author, param.Rhythmic, param.Paragraphs, param.From, param.Limit)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
 			return
 		}
+
+		return
 	}
+	err = ctx.JSON(poems)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 /*

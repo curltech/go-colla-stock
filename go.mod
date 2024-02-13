@@ -13,6 +13,12 @@ require (
 )
 
 require (
+	github.com/curltech/go-colla-core v0.1.21-0.20230819072842-39170cf8980b
+	github.com/curltech/go-colla-web v0.0.5-0.20230819121123-1e5edabd11dd
+	github.com/sugarme/gotch v0.9.1
+)
+
+require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.1 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/CloudyKit/fastprinter v0.0.0-20200109182630-33d98a066a53 // indirect
@@ -24,11 +30,10 @@ require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/casbin/casbin/v2 v2.60.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/curltech/go-colla-biz v0.0.19-0.20230819120159-cadb37e127c4 // indirect
-	github.com/curltech/go-colla-core v0.1.21-0.20230819072842-39170cf8980b // indirect
-	github.com/curltech/go-colla-web v0.0.5-0.20230819121123-1e5edabd11dd // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eknkc/amber v0.0.0-20171010120322-cdade1c07385 // indirect
@@ -84,7 +89,6 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olivere/elastic/v7 v7.0.32 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
-	github.com/onsi/gomega v1.27.8 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -102,7 +106,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/exp v0.0.0-20230725012225-302865e7556b // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
