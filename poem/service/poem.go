@@ -54,19 +54,19 @@ func (svc *PoemService) Search(title string, author string, rhythmic string, par
 	conds := "1=1"
 	paras := make([]interface{}, 0)
 	if title != "" {
-		conds = conds + " or title like ?"
+		conds = conds + " and title like ?"
 		paras = append(paras, title+"%")
 	}
 	if author != "" {
-		conds = conds + " or author like ?"
+		conds = conds + " and author like ?"
 		paras = append(paras, author+"%")
 	}
 	if rhythmic != "" {
-		conds = conds + " or rhythmic like ?"
+		conds = conds + " and rhythmic like ?"
 		paras = append(paras, rhythmic+"%")
 	}
 	if paragraphs != "" {
-		conds = conds + " or paragraphs like ?"
+		conds = conds + " and paragraphs like ?"
 		paras = append(paras, "%"+paragraphs+"%")
 	}
 	poems := make([]*entity.Poem, 0)
