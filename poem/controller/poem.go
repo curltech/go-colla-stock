@@ -41,7 +41,7 @@ func (ctl *PoemController) Search(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.PoemService)
-	poems, err := svc.Search(param.Title, param.Author, param.Rhythmic, param.Paragraphs, param.From, param.Limit)
+	poems, err := svc.Search(param.Title, param.Author, param.Rhythmic, param.Dynasty, param.Paragraphs, param.From, param.Limit)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {

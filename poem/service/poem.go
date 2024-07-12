@@ -50,7 +50,7 @@ func (svc *PoemService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (svc *PoemService) Search(title string, author string, rhythmic string, paragraphs string, from int, limit int) ([]*entity.Poem, error) {
+func (svc *PoemService) Search(title string, author string, rhythmic string, dynasty string, paragraphs string, from int, limit int) ([]*entity.Poem, error) {
 	conds := "1=1"
 	paras := make([]interface{}, 0)
 	if title != "" {
@@ -64,6 +64,10 @@ func (svc *PoemService) Search(title string, author string, rhythmic string, par
 	if rhythmic != "" {
 		conds = conds + " and rhythmic like ?"
 		paras = append(paras, "%"+rhythmic+"%")
+	}
+	if dynasty != "" {
+		conds = conds + " and dynasty like ?"
+		paras = append(paras, "%"+dynasty+"%")
 	}
 	if paragraphs != "" {
 		conds = conds + " and paragraphs like ?"
