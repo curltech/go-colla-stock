@@ -678,42 +678,6 @@ func (ctl *DayLineController) FindFlexPoint(ctx iris.Context) {
 	}
 }
 
-// FindInOutEvent 查询买卖点的方法，
-// 与FindFlexPoint的不同是通过eventCode生成filterContent
-func (ctl *DayLineController) FindInOutEvent(ctx iris.Context) {
-	dayLinePara := &DayLinePara{}
-	err := ctx.ReadJSON(&dayLinePara)
-	if err != nil {
-		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
-		if err != nil {
-			return
-		}
-
-		return
-	}
-	if dayLinePara.EventCode == "" {
-		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("eventCode is nil"))
-		if err != nil {
-			return
-		}
-
-		return
-	}
-	svc := ctl.BaseService.(*service.DayLineService)
-	inOutPoint, err := svc.FindInOutEvent(dayLinePara.TsCode, dayLinePara.TradeDate, dayLinePara.EventCode, dayLinePara.FilterParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
-	if err != nil {
-		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
-		if err != nil {
-			return
-		}
-		return
-	}
-	err = ctx.JSON(inOutPoint)
-	if err != nil {
-		return
-	}
-}
-
 func (ctl *DayLineController) FindCorr(ctx iris.Context) {
 	dayLinePara := &DayLinePara{}
 	err := ctx.ReadJSON(&dayLinePara)

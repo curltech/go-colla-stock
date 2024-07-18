@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"github.com/curltech/go-colla-core/util/convert"
 	"github.com/curltech/go-colla-stock/stock"
@@ -27,66 +26,6 @@ type InOutPoint struct {
 	Data      []*entity.DayLine        `json:"data,omitempty"`
 	CondValue []map[string]interface{} `json:"cond_value,omitempty"`
 	Count     int64                    `json:"count,omitempty"`
-}
-
-// FindInOutEvent 查询买卖点的方法，
-// 与FindFlexPoint的不同是通过eventCode生成filterContent
-func (svc *DayLineService) FindInOutEvent(tsCode string, tradeDate int64, eventCode string, filterParas []interface{}, startDate int64, endDate int64, from int, limit int, count int64) (*InOutPoint, error) {
-	efs, ok := GetEventFilterService().GetCacheEventFilter()[eventCode]
-	if !ok {
-		return nil, errors.New("eventCode err")
-	}
-	filterContent, fields := svc.buildFilterContent(efs)
-	if filterContent == "" {
-		return nil, errors.New("filterContent err")
-	}
-	inOutPoint, err := svc.FindFlexPoint(tsCode, tradeDate, fields, filterContent, filterParas, startDate, endDate, from, limit, count)
-
-	return inOutPoint, err
-}
-
-// 构建查询条件，在EventFilter的参数值为空的时候，使用compareValue，是比较值，缺省是>0；num是负数，表示放宽条件个数，缺省是0
-func (svc *DayLineService) buildFilterContent(efs []*entity.EventFilter) (string, []string) {
-	filterContent := ""
-	fields := make([]string, 0)
-	k := 0
-	//默认>0，计算汇总值的时候用不上
-	//condParas := ">0"
-	for _, ef := range efs {
-		//condCode := ef.CondCode                   //rise
-		codeAlias := ef.CodeAlias                 //minRise
-		condContent := "(" + ef.CondContent + ")" //pctchgclose-0.02
-		condName := ef.CondName                   //涨幅
-		condAlias := ef.CondAlias                 //最低涨幅
-		//完整表达式的字段，带参数
-		fields = append(fields, "'"+condContent+"' as "+codeAlias+"_cond")
-		value := condContent + " as " + codeAlias
-		//表达式的计算值
-		fields = append(fields, value)
-		if condName != "" {
-			name := "'" + condName + "' as " + codeAlias + "_name"
-			fields = append(fields, name)
-		}
-		if condAlias != "" {
-			alias := "'" + condAlias + "' as " + codeAlias + "_alias"
-			fields = append(fields, alias)
-		}
-		condParas := ef.CondParas
-		//如果缺乏参数值，则为>0
-		if condParas == "" {
-			condParas = ">0"
-		}
-		result := "case when " + condContent + condParas + " then 1 else 0 end as " + codeAlias + "_result"
-		fields = append(fields, result)
-		if k != 0 {
-			filterContent = filterContent + "+"
-		}
-		filterContent = filterContent + "(case when " + condContent + condParas + " then 1 else 0 end)"
-		k++
-	}
-	filterContent = "(" + filterContent + ")>=0"
-
-	return filterContent, fields
 }
 
 // FindFlexPoint 最基本的查询买卖点的方法，最为灵活

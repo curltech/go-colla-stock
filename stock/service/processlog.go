@@ -118,11 +118,6 @@ func (this *ProcessLogService) Schedule() {
 		logger.Sugar.Errorf("CreateScoreMedian Error:%v", err.Error())
 	}
 
-	err = GetEventCondService().RefreshEventCond()
-	if err != nil {
-		logger.Sugar.Errorf("RefreshEventCond Error:%v", err.Error())
-	}
-
 	this.EndLog(processLog, "", "")
 
 	return
