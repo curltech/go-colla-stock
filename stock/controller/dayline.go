@@ -444,7 +444,8 @@ func (ctl *DayLineController) FindPreceding(ctx iris.Context) {
 	start := time.Now()
 	ps, count, err := svc.FindPreceding(dayLinePara.TsCode, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	end := time.Now()
-	logger.Sugar.Infof("FindPreceding duration:%v", end.Compare(start))
+
+	logger.Sugar.Infof("FindPreceding duration:%v", end.UnixMilli()-start.UnixMilli())
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
