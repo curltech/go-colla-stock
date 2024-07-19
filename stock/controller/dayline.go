@@ -3,12 +3,14 @@ package controller
 import (
 	"errors"
 	"github.com/curltech/go-colla-core/container"
+	"github.com/curltech/go-colla-core/logger"
 	"github.com/curltech/go-colla-core/util/message"
 	"github.com/curltech/go-colla-stock/stock"
 	"github.com/curltech/go-colla-stock/stock/entity"
 	"github.com/curltech/go-colla-stock/stock/service"
 	"github.com/curltech/go-colla-web/controller"
 	"github.com/kataras/iris/v12"
+	"time"
 )
 
 // DayLineController 控制层代码需要做数据转换，调用服务层的代码，由于数据转换的结构不一致，
@@ -439,7 +441,10 @@ func (ctl *DayLineController) FindPreceding(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.DayLineService)
+	start := time.Now()
 	ps, count, err := svc.FindPreceding(dayLinePara.TsCode, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
+	end := time.Now()
+	logger.Sugar.Infof("FindPreceding duration:%v", end.Compare(start))
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
