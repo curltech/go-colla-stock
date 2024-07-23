@@ -93,14 +93,22 @@ func (svc *WmqyLineService) FindPreceding(tsCode string, lineType int, endDate s
 			return nil, count, err
 		}
 	}
-	err = svc.Find(&wmqyLines, nil, "tscode,linetype,qdate desc", from, limit, conds, paras...)
+	err = svc.Find(&wmqyLines, nil, "tscode,linetype,qdate,tradedate desc", from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err
 	}
 	length := len(wmqyLines)
 	ps := make([]*entity.WmqyLine, length)
+	qdate := ""
 	for i := length; i > 0; i-- {
-		ps[length-i] = wmqyLines[i-1]
+		wmqyLine := wmqyLines[i-1]
+		if qdate == wmqyLine.QDate {
+			svc.Delete(nil, "id=?", wmqyLine.Id)
+			count--
+		} else {
+			qdate = wmqyLine.QDate
+			ps[length-i] = wmqyLine
+		}
 	}
 	if len(ps) > 0 {
 		logger.Sugar.Infof("from %v to %v WmqyLine data", ps[0].QDate, ps[len(ps)-1].QDate)
