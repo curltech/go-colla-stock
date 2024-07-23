@@ -145,6 +145,17 @@ func (svc *WmqyLineService) FindFollowing(tsCode string, lineType int, startDate
 	return wmqyLines, count, nil
 }
 
+func (svc *WmqyLineService) deleteWmqyLine(tscode string, qdate string) error {
+	wmqyline := &entity.WmqyLine{}
+	conds := "tscode=? and qdate=?"
+	paras := make([]interface{}, 0)
+	paras = append(paras, tscode)
+	paras = append(paras, qdate)
+	_, err := svc.Delete(wmqyline, conds, paras...)
+
+	return err
+}
+
 func init() {
 	err := service.GetSession().Sync(new(entity.WmqyLine))
 	if err != nil {

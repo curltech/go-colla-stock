@@ -217,6 +217,7 @@ func (svc *WmqyLineService) UpdateWmqyLine(secId string, beg int64, limit int, w
 				wmqyLine.ShareNumber = wmqyLine.Amount / wmqyLine.Turnover
 			}
 			ps = append(ps, wmqyLine)
+			svc.deleteWmqyLine(wmqyLine.TsCode, wmqyLine.QDate)
 		}
 		svc.batchUpdate(wmqy, wmqyLines)
 	}
