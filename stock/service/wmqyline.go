@@ -115,7 +115,7 @@ func (svc *WmqyLineService) FindPreceding(tsCode string, lineType int, endDate s
 	} else {
 		logger.Sugar.Errorf("WmqyLine len 0")
 	}
-	return ps, int64(len(ps)), nil
+	return ps, count, nil
 }
 
 // FindFollowing 获取某时间点后limit条数据，如果没有日期范围的指定，就是返回最早limit条数据
