@@ -98,7 +98,7 @@ func (svc *WmqyLineService) FindPreceding(tsCode string, lineType int, endDate s
 		return nil, count, err
 	}
 	length := len(wmqyLines)
-	ps := make([]*entity.WmqyLine, length)
+	ps := make([]*entity.WmqyLine, 0)
 	qdate := ""
 	for i := length; i > 0; i-- {
 		wmqyLine := wmqyLines[i-1]
@@ -107,7 +107,7 @@ func (svc *WmqyLineService) FindPreceding(tsCode string, lineType int, endDate s
 			count--
 		} else {
 			qdate = wmqyLine.QDate
-			ps[length-i] = wmqyLine
+			ps = append(ps, wmqyLine)
 		}
 	}
 	if len(ps) > 0 {
@@ -115,7 +115,7 @@ func (svc *WmqyLineService) FindPreceding(tsCode string, lineType int, endDate s
 	} else {
 		logger.Sugar.Errorf("WmqyLine len 0")
 	}
-	return ps, count, nil
+	return ps, int64(len(ps)), nil
 }
 
 // FindFollowing 获取某时间点后limit条数据，如果没有日期范围的指定，就是返回最早limit条数据
