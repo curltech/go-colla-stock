@@ -315,11 +315,9 @@ func (svc *DayLineService) GetUpdateDayline(secId string, beg int64, limit int) 
 
 func (svc *DayLineService) deleteDayline(secId string, beg int64) error {
 	dayline := &entity.DayLine{}
-	conds := "tscode=? and tradedate>=?"
-	paras := make([]interface{}, 0)
-	paras = append(paras, secId)
-	paras = append(paras, beg)
-	_, err := svc.Delete(dayline, conds, paras...)
+	dayline.TsCode = secId
+	dayline.TradeDate = beg
+	_, err := svc.Delete(dayline, "")
 
 	return err
 }

@@ -103,7 +103,7 @@ func (svc *WmqyLineService) FindPreceding(tsCode string, lineType int, endDate s
 	for i := length; i > 0; i-- {
 		wmqyLine := wmqyLines[i-1]
 		if qdate == wmqyLine.QDate {
-			svc.Delete(nil, "id=?", wmqyLine.Id)
+			svc.Delete(wmqyLine, "")
 			count--
 		} else {
 			qdate = wmqyLine.QDate
@@ -155,11 +155,9 @@ func (svc *WmqyLineService) FindFollowing(tsCode string, lineType int, startDate
 
 func (svc *WmqyLineService) deleteWmqyLine(tscode string, qdate string) error {
 	wmqyline := &entity.WmqyLine{}
-	conds := "tscode=? and qdate=?"
-	paras := make([]interface{}, 0)
-	paras = append(paras, tscode)
-	paras = append(paras, qdate)
-	_, err := svc.Delete(wmqyline, conds, paras...)
+	wmqyline.TsCode = tscode
+	wmqyline.QDate = qdate
+	_, err := svc.Delete(wmqyline, "")
 
 	return err
 }
