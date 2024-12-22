@@ -49,10 +49,13 @@ github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyY
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/curltech/go-colla-biz v0.1.23 h1:M0uGjTMkELSWl9x5z/ZkZ4jHQLsz/u3PYFPXyAz+N7I=
 github.com/curltech/go-colla-biz v0.1.23/go.mod h1:MKPXZFeZ+e+/bx14uLeNAsmAcisiXtl3mf0yJmXmzdc=
+github.com/curltech/go-colla-biz v0.1.24/go.mod h1:BeYTiv9rRkUevLCedef/iMqfqd6SZ80F/vGWpb9OIAs=
 github.com/curltech/go-colla-core v0.1.23 h1:DRiTNcDi/s6IpYGEMvKrAow8rRtgDj0k6hmyhTGNt/Y=
 github.com/curltech/go-colla-core v0.1.23/go.mod h1:e2mCTnLRBnJlPH68gYwbLWGEN6rw7ZFklbq05lRxH5o=
+github.com/curltech/go-colla-core v0.1.24/go.mod h1:e2mCTnLRBnJlPH68gYwbLWGEN6rw7ZFklbq05lRxH5o=
 github.com/curltech/go-colla-web v0.1.23 h1:0L9ZKKdQSK5e61RnVivFJsQTkI0ahEJkTI0Lc4ySUpc=
 github.com/curltech/go-colla-web v0.1.23/go.mod h1:Qw/utCf/+6elczHF/PtqbbNPt3nT9HP3m3rW5yRX5To=
+github.com/curltech/go-colla-web v0.1.24/go.mod h1:klCFtN4wlW9sr5MO8SXhtQAc8mr5MeDtYDQGE59YNCQ=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

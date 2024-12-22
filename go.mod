@@ -13,8 +13,8 @@ require (
 )
 
 require (
-	github.com/curltech/go-colla-core v0.1.23
-	github.com/curltech/go-colla-web v0.1.23
+	github.com/curltech/go-colla-core v0.1.24
+	github.com/curltech/go-colla-web v0.1.24
 	github.com/sugarme/gotch v0.9.1
 )
 
@@ -32,7 +32,7 @@ require (
 	github.com/casbin/casbin/v2 v2.102.0 // indirect
 	github.com/casbin/govaluate v1.2.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/curltech/go-colla-biz v0.1.23 // indirect
+	github.com/curltech/go-colla-biz v0.1.24 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/elastic/elastic-transport-go/v8 v8.6.0 // indirect
