@@ -1,11 +1,11 @@
 app:
-  name: peer1
+  name: peer
   serialize: json
   sessionLog: false
   template: html
   enableSession: true
 server:
-  name: camsi-boot-peer1
+  name: camsi-boot-peer
   email: hujs@colla.cc
   runmode: dev
   password: "123456"
@@ -46,7 +46,7 @@ database:
   #connMaxLifetime: 3000
   #connMaxIdleTime: 3000
 content:
-  path: /Users/hujingsong/content/peer1
+  path: /Users/hujingsong/content/peer
 rbac:
   accessTokenMaxAge: 1000
 workflow:
@@ -67,7 +67,7 @@ libp2p:
   enableAutoRelay: false
 ipfs:
   enable: false
-  repoPath: /Users/hujingsong/content/peer1
+  repoPath: /Users/hujingsong/content/peer
 turn:
   enable: false
   realm: ion
