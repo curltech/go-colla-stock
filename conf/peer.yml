@@ -32,7 +32,7 @@ http:
 database:
   drivername: postgres # sqlite3
   #dsn: /Users/hujingsong/peer1.db
-  host: 192.168.1.17
+  host: 192.168.1.18
   port: 5432
   dbname: stock
   user: postgres

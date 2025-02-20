@@ -1,6 +1,6 @@
 module github.com/curltech/go-colla-stock
 
-go 1.23
+go 1.24
 
 require (
 	github.com/go-gota/gota v0.12.0
