@@ -351,8 +351,8 @@ type DayLinePara struct {
 	SrcDayCount    string        `json:"src_day_count,omitempty"`
 	TargetDayCount string        `json:"target_day_count,omitempty"`
 	Cross          string        `json:"cross,omitempty"`
-	FilterContent  string        `json:"filter_content,omitempty"`
-	FilterParas    []interface{} `json:"filter_paras,omitempty"`
+	CondContent    string        `json:"cond_content,omitempty"`
+	CondParas      []interface{} `json:"cond_paras,omitempty"`
 }
 
 // Search 主要的查询参数进行查询
@@ -660,7 +660,7 @@ func (ctl *DayLineController) FindFlexPoint(ctx iris.Context) {
 
 		return
 	}
-	if dayLinePara.FilterContent == "" {
+	if dayLinePara.CondContent == "" {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, errors.New("filterContent is nil"))
 		if err != nil {
 			return
@@ -669,7 +669,7 @@ func (ctl *DayLineController) FindFlexPoint(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.DayLineService)
-	inOutPoint, err := svc.FindFlexPoint(dayLinePara.TsCode, dayLinePara.TradeDate, dayLinePara.FilterContent, dayLinePara.FilterParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
+	dayLines, count, err := svc.FindFlexPoint(dayLinePara.TsCode, dayLinePara.TradeDate, dayLinePara.CondContent, dayLinePara.CondParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
@@ -677,7 +677,10 @@ func (ctl *DayLineController) FindFlexPoint(ctx iris.Context) {
 		}
 		return
 	}
-	err = ctx.JSON(inOutPoint)
+	result := make(map[string]interface{})
+	result["count"] = count
+	result["data"] = dayLines
+	err = ctx.JSON(result)
 	if err != nil {
 		return
 	}
