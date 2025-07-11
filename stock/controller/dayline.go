@@ -351,7 +351,6 @@ type DayLinePara struct {
 	SrcDayCount    string        `json:"src_day_count,omitempty"`
 	TargetDayCount string        `json:"target_day_count,omitempty"`
 	Cross          string        `json:"cross,omitempty"`
-	EventCode      string        `json:"event_code,omitempty"`
 	FilterContent  string        `json:"filter_content,omitempty"`
 	FilterParas    []interface{} `json:"filter_paras,omitempty"`
 }
@@ -670,7 +669,7 @@ func (ctl *DayLineController) FindFlexPoint(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.DayLineService)
-	inOutPoint, err := svc.FindFlexPoint(dayLinePara.TsCode, dayLinePara.TradeDate, nil, dayLinePara.FilterContent, dayLinePara.FilterParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
+	inOutPoint, err := svc.FindFlexPoint(dayLinePara.TsCode, dayLinePara.TradeDate, dayLinePara.FilterContent, dayLinePara.FilterParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
