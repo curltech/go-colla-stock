@@ -323,30 +323,14 @@ func (svc *DayLineService) deleteDayline(secId string, beg int64) error {
 }
 
 func (svc *DayLineService) UpdateDayline(secId string, beg int64, limit int) ([]*entity.DayLine, error) {
-	if beg >= 0 {
-		err := svc.deleteDayline(secId, beg)
-		if err != nil {
-			return nil, err
-		}
-	}
-	var pre *entity.DayLine
 	previous, err := svc.findMaxTradeDate(secId)
+	var pre *entity.DayLine = nil
 	if previous == nil || len(previous) == 0 {
 		beg = 0
 	} else if previous[0] != nil {
 		pre = previous[0]
 		if beg < 0 {
-			beg = pre.TradeDate
-			//删除最新一天的数据，重新获取，因为可能是获取分钟线时形成的数据，不准确
-			err = svc.deleteDayline(secId, beg)
-			if err != nil {
-				return nil, err
-			}
-			if len(previous) > 1 && previous[1] != nil {
-				pre = previous[1]
-			} else {
-				pre = nil
-			}
+			beg = stock.AddDay(previous[0].TradeDate, 1)
 		}
 	}
 	today := stock.CurrentDate()
