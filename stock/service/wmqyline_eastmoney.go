@@ -158,7 +158,7 @@ func (svc *WmqyLineService) RefreshWmqyLine(beg int64) error {
 	processLog := GetProcessLogService().StartLog("wmqyLine", "RefreshWmqyLine", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateWmqyLine, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
+	ts_codes, _ := GetShareService().GetShareCache()
 	wmqy := &WmqyLineBuf{Buf: make([]interface{}, 0), Lock: sync.Mutex{}}
 	for _, ts_code := range ts_codes {
 		para := make([]interface{}, 0)
@@ -379,7 +379,7 @@ func (svc *WmqyLineService) StdPath(minmax string, standard string, startDate in
 
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncStdFile, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
+	ts_codes, _ := GetShareService().GetShareCache()
 	for _, ts_code := range ts_codes {
 		para := make([]interface{}, 0)
 		para = append(para, minmax)

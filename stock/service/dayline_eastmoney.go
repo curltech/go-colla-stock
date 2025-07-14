@@ -269,9 +269,9 @@ func strToFloat(value string) (float64, error) {
 // RefreshDayLine 刷新所有股票的日线数据，beg为负数的时候从已有的最新数据开始更新
 func (svc *DayLineService) RefreshDayLine(beg int64) error {
 	processLog := GetProcessLogService().StartLog("dayline", "RefreshDayLine", "")
-	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateDayLine, nil)
+	routinePool := thread.CreateRoutinePool(1, svc.AsyncUpdateDayLine, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)
@@ -402,9 +402,8 @@ func (svc *DayLineService) UpdateFinanceFlow(dayLines []*entity.DayLine, secId s
 }
 
 func getSecId(secId string) string {
-	_, shares := GetShareService().GetCacheShare()
-	share, exist := shares[secId]
-	if exist {
+	share := GetShareService().GetCacheShare(secId)
+	if share != nil {
 		if strings.HasSuffix(share.Symbol, ".SH") {
 			return "1." + secId
 		}
@@ -532,7 +531,7 @@ func (svc *DayLineService) StdPath(src string, minmax string, standard string, s
 			}
 		}
 	} else {
-		tsCodes, _ := GetShareService().GetCacheShare()
+		tsCodes, _ := GetShareService().GetShareCache()
 		for _, tsCode := range tsCodes {
 			para := make([]interface{}, 0)
 			para = append(para, src)

@@ -145,7 +145,7 @@ func (this *ForecastService) RefreshForecast() error {
 	processLog := GetProcessLogService().StartLog("forecast", "RefreshForecast", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, this.AsyncUpdateForecast, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
+	ts_codes, _ := GetShareService().GetShareCache()
 	for _, securityCode := range ts_codes {
 		routinePool.Invoke(securityCode)
 	}

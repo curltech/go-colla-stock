@@ -10,7 +10,9 @@ import (
 	"github.com/curltech/go-colla-stock/stock"
 	"github.com/curltech/go-colla-stock/stock/entity"
 	tushareSvc "github.com/curltech/go-colla-stock/stock/tushare/service"
+	"github.com/patrickmn/go-cache"
 	"strings"
+	"time"
 )
 
 type ShareRequest struct {
@@ -209,9 +211,11 @@ func (svc *ShareService) Search(keyword string, from int, limit int) ([]*entity.
 }
 
 func (svc *ShareService) UpdatePinYin() {
-	_, shareMap := svc.GetCacheShare()
+	_, shareCache := svc.GetShareCache()
 	ps := make([]interface{}, 0)
-	for _, share := range shareMap {
+	items := shareCache.Items()
+	for _, item := range items {
+		share := item.Object.(*entity.Share)
 		if share.PinYin != "" {
 			continue
 		}
@@ -250,14 +254,25 @@ func (svc *ShareService) UpdateShares() {
 	}
 }
 
+func (svc *ShareService) GetCacheShare(tsCode string) *entity.Share {
+	_, shareCache := svc.GetShareCache()
+	v, ok := shareCache.Get(tsCode)
+	if !ok {
+		return nil
+	}
+	share := v.(*entity.Share)
+
+	return share
+}
+
 func (svc *ShareService) UpdateSector(tsCode string, sector string) {
 	tsCodes := strings.Split(tsCode, ",")
 	sectors := strings.Split(sector, ",")
-	_, shareMap := svc.GetCacheShare()
+	_, shareCache := svc.GetShareCache()
 	ps := make([]interface{}, 0)
 
 	for k, t := range tsCodes {
-		share, ok := shareMap[t]
+		v, ok := shareCache.Get(t)
 		if !ok {
 			continue
 		}
@@ -268,6 +283,7 @@ func (svc *ShareService) UpdateSector(tsCode string, sector string) {
 		if sector == "" {
 			continue
 		}
+		share := v.(*entity.Share)
 		share.Sector = sector
 		ps = append(ps, share)
 	}
@@ -278,13 +294,13 @@ func (svc *ShareService) UpdateSector(tsCode string, sector string) {
 	}
 }
 
-var shareCache map[string]*entity.Share = nil
+var shareCache *cache.Cache = nil
 var cacheTsCodes []string = nil
 
 // GetCacheShare 获取缓存的股票
-func (svc *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
+func (svc *ShareService) GetShareCache() ([]string, *cache.Cache) {
 	if shareCache == nil {
-		shareCache = make(map[string]*entity.Share, 0)
+		shareCache = cache.New(cache.NoExpiration, time.Duration(-1)*time.Second)
 		shares := make([]*entity.Share, 0)
 		err := GetShareService().Find(&shares, nil, "tscode", 0, 0, "")
 		if err != nil {
@@ -293,7 +309,7 @@ func (svc *ShareService) GetCacheShare() ([]string, map[string]*entity.Share) {
 		cacheTsCodes = make([]string, len(shares))
 		i := 0
 		for _, share := range shares {
-			shareCache[share.TsCode] = share
+			shareCache.Set(share.TsCode, share, -1)
 			cacheTsCodes[i] = share.TsCode
 			i++
 		}

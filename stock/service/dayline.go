@@ -546,7 +546,7 @@ func (svc *DayLineService) FindCorr(tsCode string, startDate int64, from int, li
 	sql = sql + " group by src.tscode,target.tscode"
 	var err error
 	if count == 0 {
-		shares, _ := GetShareService().GetCacheShare()
+		shares, _ := GetShareService().GetShareCache()
 		count = int64(len(shares))
 	}
 	sql = "select * from (" + sql + ") t where stat_value is not null"
@@ -567,7 +567,6 @@ func (svc *DayLineService) FindCorr(tsCode string, startDate int64, from int, li
 	}
 	corrs := make([]*entity.PortfolioStat, 0)
 	jsonMap, _, _ := stock.GetJsonMap(entity.PortfolioStat{})
-	_, shares := GetShareService().GetCacheShare()
 	for _, result := range results {
 		corr := &entity.PortfolioStat{}
 		for colname, v := range result {
@@ -576,12 +575,12 @@ func (svc *DayLineService) FindCorr(tsCode string, startDate int64, from int, li
 				logger.Sugar.Errorf("Set colname %v value %v error", colname, string(v))
 			}
 		}
-		share, ok := shares[corr.TsCode]
-		if ok {
+		share := GetShareService().GetCacheShare(corr.TsCode)
+		if share != nil {
 			corr.SecurityName = share.Name
 		}
-		share, ok = shares[corr.TargetTsCode]
-		if ok {
+		share = GetShareService().GetCacheShare(corr.TargetTsCode)
+		if share != nil {
 			corr.TargetSecurityName = share.Name
 		}
 		corr.StartDate = startDate
@@ -599,7 +598,7 @@ func (svc *DayLineService) RefreshStat(startDate int64) error {
 	processLog := GetProcessLogService().StartLog("", "RefreshStat", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateStat, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)
@@ -767,7 +766,7 @@ func (svc *DayLineService) RefreshBeforeMa(startDate int64) error {
 	processLog := GetProcessLogService().StartLog("", "RefreshBeforeMa", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateBeforeMa, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)

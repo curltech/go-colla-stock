@@ -43,7 +43,7 @@ func (svc *DayLineService) WriteAllFile(startDate int64) error {
 	}
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncWriteFile, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, src)

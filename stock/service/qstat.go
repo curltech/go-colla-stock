@@ -307,7 +307,7 @@ func (svc *QStatService) RefreshQStat() error {
 	processLog := GetProcessLogService().StartLog("qstat", "RefreshQStat", "")
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateQStat, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)

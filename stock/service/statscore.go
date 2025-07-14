@@ -168,7 +168,7 @@ func (svc *StatScoreService) RefreshStatScore() error {
 	processLog := GetProcessLogService().StartLog("qstatscore", "RefreshStatScore", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateStatScore, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)
@@ -211,7 +211,6 @@ func (svc *StatScoreService) updateStatScore(tsCode string) (map[string]map[int]
 		logger.Sugar.Errorf("ts_code:%v Error:%v", tsCode, err.Error())
 	}
 
-	_, shares := GetShareService().GetCacheShare()
 	statScoresMap := make(map[string]map[int]*entity.StatScore, 0)
 	for tscode, qstatsMap := range qstatMap {
 		//最新一年期的累计涨幅，代表股票的景气度
@@ -246,8 +245,8 @@ func (svc *StatScoreService) updateStatScore(tsCode string) (map[string]map[int]
 			statScore.TradeDate = stat.TradeDate
 			statScore.TsCode = tscode
 			statScore.SecurityName = stat.SecurityName
-			share, ok := shares[tscode]
-			if ok {
+			share := GetShareService().GetCacheShare(tscode)
+			if share != nil {
 				statScore.Industry = share.Industry
 				statScore.Sector = share.Sector
 				statScore.Area = share.Area

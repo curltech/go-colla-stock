@@ -462,7 +462,6 @@ func (svc *QPerformanceService) merge(qeMap map[string][]interface{}, qpMap map[
 
 // Compute 计算并推导缺失的当前价格和股票季度业绩数据项
 func (svc *QPerformanceService) Compute(qpMap map[string][]interface{}, previousMap map[string]*entity.QPerformance) {
-	_, tscodeMap := GetShareService().GetCacheShare()
 	for tscode, qps := range qpMap {
 		var previous *entity.QPerformance
 		if previousMap != nil {
@@ -545,14 +544,14 @@ func (svc *QPerformanceService) Compute(qpMap map[string][]interface{}, previous
 				qp.GrossProfitMargin = previous.GrossProfitMargin
 			}
 			if qp.Industry == "" {
-				share, ok := tscodeMap[qp.TsCode]
-				if ok {
+				share := GetShareService().GetCacheShare(qp.TsCode)
+				if share != nil {
 					qp.Industry = share.Industry
 				}
 			}
 			if qp.Sector == "" {
-				share, ok := tscodeMap[qp.TsCode]
-				if ok {
+				share := GetShareService().GetCacheShare(qp.TsCode)
+				if share != nil {
 					qp.Sector = share.Sector
 				}
 			}
@@ -743,7 +742,7 @@ func (svc *QPerformanceService) RefreshWmqyQPerformance(startDate string) error 
 	processLog := GetProcessLogService().StartLog("qperformance", "RefreshWmqyQPerformance", "")
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateWmqyQPerformance, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)
@@ -759,7 +758,7 @@ func (svc *QPerformanceService) RefreshDayQPerformance() error {
 	processLog := GetProcessLogService().StartLog("qperformance", "RefreshDayQPerformance", "")
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateDayQPerformance, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)
@@ -1197,7 +1196,6 @@ func (svc *QPerformanceService) FindQStatBySql(aggregationType string, tsCode st
 
 // FindPercentRank 计算股票的在本股票历史上以及在同行业历史上的位置,不支持tscode多只股票
 func (svc *QPerformanceService) FindPercentRank(rankType string, tsCode string, tradeDate int64, startDate string, endDate string, from int, limit int, count int64) ([]*entity.QPerformance, error) {
-	_, shares := GetShareService().GetCacheShare()
 	in, inParas := stock.InBuildStr("ts_code", tsCode, ",")
 	jsonMap, _, jsonHeads := stock.GetJsonMap(entity.QPerformance{})
 	sql := "select id as id,tscode as ts_code,securityname as security_name,industry as industry,sector as sector"
@@ -1213,8 +1211,8 @@ func (svc *QPerformanceService) FindPercentRank(rankType string, tsCode string, 
 		}
 	}
 	sql = sql + " from stk_qperformance"
-	share, ok := shares[tsCode]
-	if ok {
+	share := GetShareService().GetCacheShare(tsCode)
+	if share != nil {
 		if rankType == "tscode" {
 			sql = sql + " where tscode='" + tsCode + "'"
 		} else if rankType == "industry" {

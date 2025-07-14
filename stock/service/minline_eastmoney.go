@@ -312,7 +312,7 @@ func (svc *MinLineService) RefreshMinLine(beg int64) error {
 	processLog := GetProcessLogService().StartLog("minline", "RefreshMinLine", "")
 	routinePool := thread.CreateRoutinePool(10, svc.AsyncUpdateMinLine, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)
@@ -401,7 +401,7 @@ func (svc *MinLineService) RefreshTodayMinLine() error {
 	processLog := GetProcessLogService().StartLog("minline", "RefreshTodayMinLine", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdateTodayMinLine, nil)
 	defer routinePool.Release()
-	tsCodes, _ := GetShareService().GetCacheShare()
+	tsCodes, _ := GetShareService().GetShareCache()
 	for _, tsCode := range tsCodes {
 		para := make([]interface{}, 0)
 		para = append(para, tsCode)

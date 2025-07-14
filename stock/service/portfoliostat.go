@@ -50,7 +50,8 @@ func (this *PortfolioStatService) NewEntities(data []byte) (interface{}, error) 
 	return &entities, err
 }
 
-/**
+/*
+*
 删除股票季度业绩统计数据
 */
 func (this *PortfolioStatService) deletePortfolioStat(ts_code string) error {
@@ -64,14 +65,15 @@ func (this *PortfolioStatService) deletePortfolioStat(ts_code string) error {
 	return nil
 }
 
-/**
+/*
+*
 刷新所有股票的季度业绩统计数据
 */
 func (this *PortfolioStatService) RefreshPortfolioStat() error {
 	processLog := GetProcessLogService().StartLog("portfolioStat", "RefreshPortfolioStat", "")
 	routinePool := thread.CreateRoutinePool(10, this.AsyncUpdatePortfolioStat, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
+	ts_codes, _ := GetShareService().GetShareCache()
 	for _, ts_code := range ts_codes {
 		para := make([]interface{}, 0)
 		para = append(para, ts_code)
@@ -89,7 +91,8 @@ func (this *PortfolioStatService) AsyncUpdatePortfolioStat(para interface{}) {
 	this.GetUpdatePortfolioStat(tscode)
 }
 
-/**
+/*
+*
 更新股票季度业绩统计数据，并返回结果
 */
 func (this *PortfolioStatService) GetUpdatePortfolioStat(tscode string) ([]interface{}, error) {
@@ -110,7 +113,8 @@ func (this *PortfolioStatService) GetUpdatePortfolioStat(tscode string) ([]inter
 	return ps, err
 }
 
-/**
+/*
+*
 通过内存更新股票季度业绩统计数据，并返回结果
 */
 func (this *PortfolioStatService) UpdatePortfolioStat(tscode string) error {

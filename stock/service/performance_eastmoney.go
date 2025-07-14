@@ -152,7 +152,7 @@ func (svc *PerformanceService) RefreshPerformance() error {
 	processLog := GetProcessLogService().StartLog("performance", "RefreshPerformance", "")
 	routinePool := thread.CreateRoutinePool(NetRoutinePoolSize, svc.AsyncUpdatePerformance, nil)
 	defer routinePool.Release()
-	ts_codes, _ := GetShareService().GetCacheShare()
+	ts_codes, _ := GetShareService().GetShareCache()
 	for _, securityCode := range ts_codes {
 		routinePool.Invoke(securityCode)
 	}
