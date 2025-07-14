@@ -25,21 +25,24 @@ func (ctl *QPerformanceController) ParseJSON(json []byte) (interface{}, error) {
 }
 
 type QPerformancePara struct {
-	Terms         []int    `json:"terms,omitempty"`
-	Term          int      `json:"term,omitempty"`
-	SourceOptions []string `json:"source_options,omitempty"`
-	From          int      `json:"from,omitempty"`
-	Limit         int      `json:"limit,omitempty"`
-	Orderby       string   `json:"orderby,omitempty"`
-	Count         int64    `json:"count,omitempty"`
-	Keyword       string   `json:"keyword,omitempty"`
-	TsCode        string   `json:"ts_code,omitempty"`
-	StartDate     string   `json:"start_date,omitempty"`
-	EndDate       string   `json:"end_date,omitempty"`
-	TradeDate     int64    `json:"trade_date,omitempty"`
-	RankType      string   `json:"rank_type,omitempty"`
-	StdType       int      `json:"std_type,omitempty"`
-	Winsorize     bool     `json:"winsorize,omitempty"`
+	Terms         []int         `json:"terms,omitempty"`
+	Term          int           `json:"term,omitempty"`
+	SourceOptions []string      `json:"source_options,omitempty"`
+	From          int           `json:"from,omitempty"`
+	Limit         int           `json:"limit,omitempty"`
+	Orderby       string        `json:"orderby,omitempty"`
+	Count         int64         `json:"count,omitempty"`
+	Keyword       string        `json:"keyword,omitempty"`
+	TsCode        string        `json:"ts_code,omitempty"`
+	QDate         string        `json:"qdate,omitempty"`
+	StartDate     string        `json:"start_date,omitempty"`
+	EndDate       string        `json:"end_date,omitempty"`
+	TradeDate     int64         `json:"trade_date,omitempty"`
+	RankType      string        `json:"rank_type,omitempty"`
+	StdType       int           `json:"std_type,omitempty"`
+	Winsorize     bool          `json:"winsorize,omitempty"`
+	CondContent   string        `json:"cond_content,omitempty"`
+	CondParas     []interface{} `json:"cond_paras,omitempty"`
 }
 
 func (ctl *QPerformanceController) FindByQDate(ctx iris.Context) {
@@ -54,7 +57,7 @@ func (ctl *QPerformanceController) FindByQDate(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.QPerformanceService)
-	es, count, err := svc.FindByQDate(param.TsCode, param.StartDate, param.EndDate, param.Orderby, param.From, param.Limit, param.Count)
+	es, count, err := svc.FindByCondContent(param.TsCode, param.QDate, param.TradeDate, param.CondContent, param.CondParas, param.Orderby, param.From, param.Limit, param.Count)
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {

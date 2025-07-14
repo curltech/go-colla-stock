@@ -55,15 +55,25 @@ func (svc *QPerformanceService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (svc *QPerformanceService) FindByQDate(tsCode string, startDate string, endDate string, orderby string, from int, limit int, count int64) ([]*entity.QPerformance, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
-	if startDate != "" {
-		conds = conds + " and qdate>=?"
-		paras = append(paras, startDate)
+// / 标准查询，tsCode和tradeDate，qDate必有一个不为空
+func (svc *QPerformanceService) FindByCondContent(tsCode string, qDate string, tradeDate int64, condContent string, condParas []interface{}, orderby string, from int, limit int, count int64) ([]*entity.QPerformance, int64, error) {
+	if tsCode == "" && qDate == "" && tradeDate == 0 {
+		return nil, 0, errors.New("tsCode, qDate and tradeDate can't all be empty")
 	}
-	if endDate != "" {
-		conds = conds + " and qdate<=?"
-		paras = append(paras, endDate)
+	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
+	if condContent != "" {
+		conds = conds + " and " + condContent
+		if condParas != nil && len(condParas) > 0 {
+			paras = append(paras, condParas...)
+		}
+	}
+	if qDate != "" {
+		conds = conds + " and qdate=?"
+		paras = append(paras, qDate)
+	}
+	if tradeDate != 0 {
+		conds = conds + " and tradeDate=?"
+		paras = append(paras, tradeDate)
 	}
 	var err error
 	condiBean := &entity.QPerformance{}

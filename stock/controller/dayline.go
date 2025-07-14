@@ -648,7 +648,7 @@ func (ctl *DayLineController) FindMaCross(ctx iris.Context) {
 // FindFlexPoint 最基本的查询买卖点的方法，最为灵活
 // 条件包括tsCode，tradeDate，filterContent（filterParas），startDate，endDate
 // 如果filterContent中有?，则filterParas中必须有对应的参数值
-func (ctl *DayLineController) FindFlexPoint(ctx iris.Context) {
+func (ctl *DayLineController) FindByCondContent(ctx iris.Context) {
 	//解析查询参数
 	dayLinePara := &DayLinePara{}
 	err := ctx.ReadJSON(&dayLinePara)
@@ -669,7 +669,7 @@ func (ctl *DayLineController) FindFlexPoint(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.DayLineService)
-	dayLines, count, err := svc.FindFlexPoint(dayLinePara.TsCode, dayLinePara.TradeDate, dayLinePara.CondContent, dayLinePara.CondParas, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
+	dayLines, count, err := svc.FindByCondContent(dayLinePara.TsCode, dayLinePara.TradeDate, dayLinePara.CondContent, dayLinePara.CondParas, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
