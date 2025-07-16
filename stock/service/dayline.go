@@ -252,24 +252,29 @@ func (svc *DayLineService) FindLatest(tsCode string) ([]*entity.DayLine, error) 
 	return dayLines, nil
 }
 
-func (svc *DayLineService) Search(tsCode string, industry string, sector string, startDate int64, endDate int64, orderby string, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
-	conds, paras := stock.InBuildStr("tscode", tsCode, ",")
+func (svc *DayLineService) Search(keyword string, industry string, tradeDate int64, condContent string, condParas []interface{}, orderby string, from int, limit int, count int64) ([]*entity.DayLine, int64, error) {
+	conds := "1=1"
+	var paras []interface{}
 	dayLines := make([]*entity.DayLine, 0)
+	if keyword != "" {
+		conds += " and tscode in (select tscode from stk_share where name like ? or tscode like ? or pinyin like ?)"
+		paras = append(paras, keyword+"%")
+		paras = append(paras, keyword+"%")
+		paras = append(paras, strings.ToLower(keyword)+"%")
+	}
 	if industry != "" {
 		conds += " and tscode in (select tscode from stk_share where industry = ?)"
 		paras = append(paras, industry)
 	}
-	if sector != "" {
-		conds += " and tscode in (select tscode from stk_share where sector = ?)"
-		paras = append(paras, sector)
+	if tradeDate != 0 {
+		conds = conds + " and tradedate=?"
+		paras = append(paras, tradeDate)
 	}
-	if startDate != 0 {
-		conds = conds + " and tradedate>=?"
-		paras = append(paras, startDate)
-	}
-	if endDate != 0 {
-		conds = conds + " and tradedate<=?"
-		paras = append(paras, endDate)
+	if condContent != "" {
+		conds = conds + " and " + condContent
+		if condParas != nil && len(condParas) > 0 {
+			paras = append(paras, condParas...)
+		}
 	}
 	var err error
 	condiBean := &entity.DayLine{}

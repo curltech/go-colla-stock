@@ -98,12 +98,7 @@ func (svc *QPerformanceService) FindByCondContent(tsCode string, qDate string, t
 	return ps, count, nil
 }
 
-func (svc *QPerformanceService) Search(keyword string, tscode string, terms []int, sourceOptions []string, startDate string, endDate string, orderby string, from int, limit int, count int64) ([]*entity.QPerformance, int64, error) {
-	if keyword == "" && tscode == "" {
-		if limit == 0 {
-			limit = 20
-		}
-	}
+func (svc *QPerformanceService) Search(keyword string, terms []int, sourceOptions []string, startDate string, endDate string, condContent string, condParas []interface{}, orderby string, from int, limit int, count int64) ([]*entity.QPerformance, int64, error) {
 	//计算StartDate，前提是terms有值
 	if startDate == "" && terms != nil && len(terms) > 0 {
 		term := 0
@@ -119,8 +114,8 @@ func (svc *QPerformanceService) Search(keyword string, tscode string, terms []in
 				}
 			}
 		}
-		tscodes := tscode
-		if tscodes == "" && keyword != "" {
+		tscodes := ""
+		if keyword != "" {
 			shares, err := GetShareService().Search(keyword, 0, 10)
 			if err != nil {
 				return nil, 0, err
@@ -154,16 +149,17 @@ func (svc *QPerformanceService) Search(keyword string, tscode string, terms []in
 		conds += " and " + sourceConds
 		paras = append(paras, sourceParas...)
 	}
-	if tscode != "" {
-		tscodeCond, tscodeParams := stock.InBuildStr("tscode", tscode, ",")
-		conds += " and " + tscodeCond
-		paras = append(paras, tscodeParams...)
-	} else {
-		if keyword != "" {
-			conds += " and tscode in (select tscode from stk_share where name like ? or tscode like ? or pinyin like ?)"
-			paras = append(paras, keyword+"%")
-			paras = append(paras, keyword+"%")
-			paras = append(paras, strings.ToLower(keyword)+"%")
+
+	if keyword != "" {
+		conds += " and tscode in (select tscode from stk_share where name like ? or tscode like ? or pinyin like ?)"
+		paras = append(paras, keyword+"%")
+		paras = append(paras, keyword+"%")
+		paras = append(paras, strings.ToLower(keyword)+"%")
+	}
+	if condContent != "" {
+		conds = conds + " and " + condContent
+		if condParas != nil && len(condParas) > 0 {
+			paras = append(paras, condParas...)
 		}
 	}
 	qperformances := make([]*entity.QPerformance, 0)
@@ -408,7 +404,7 @@ func (svc *QPerformanceService) findDayQPerformance(tsCode string, stdType StdTy
 
 // FindStdQPerformance 查询股票季度业绩数据，并进行标准化处理
 func (svc *QPerformanceService) FindStdQPerformance(tsCode string, terms []int, startDate string, endDate string, stdType StdType, isWinsorize bool) (map[string][]*entity.QPerformance, error) {
-	qps, _, err := svc.Search("", tsCode, terms, nil, startDate, endDate, "", 0, 0, 1)
+	qps, _, err := svc.Search(tsCode, terms, nil, startDate, endDate, "", nil, "", 0, 0, 1)
 	if err != nil {
 		return nil, err
 	}

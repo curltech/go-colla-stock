@@ -83,15 +83,15 @@ func (this *ProcessLogService) Schedule() {
 		logger.Sugar.Errorf("RefreshDayLine Error:%v", err.Error())
 	}
 
-	err = minLineService.RefreshMinLine(-1)
-	if err != nil {
-		logger.Sugar.Errorf("RefreshMinLine Error:%v", err.Error())
-	}
-
-	err = wmqyLineService.RefreshWmqyLine(-1)
-	if err != nil {
-		logger.Sugar.Errorf("RefreshWmqyLine Error:%v", err.Error())
-	}
+	//err = minLineService.RefreshMinLine(-1)
+	//if err != nil {
+	//	logger.Sugar.Errorf("RefreshMinLine Error:%v", err.Error())
+	//}
+	//
+	//err = wmqyLineService.RefreshWmqyLine(-1)
+	//if err != nil {
+	//	logger.Sugar.Errorf("RefreshWmqyLine Error:%v", err.Error())
+	//}
 
 	err = forecastService.RefreshForecast()
 	if err != nil {

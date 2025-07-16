@@ -86,7 +86,7 @@ func (ctl *QPerformanceController) Search(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.QPerformanceService)
-	ps, count, err := svc.Search(qperformancePara.Keyword, qperformancePara.TsCode, qperformancePara.Terms, qperformancePara.SourceOptions, qperformancePara.StartDate, qperformancePara.EndDate, qperformancePara.Orderby, qperformancePara.From, qperformancePara.Limit, qperformancePara.Count)
+	ps, count, err := svc.Search(qperformancePara.Keyword, qperformancePara.Terms, qperformancePara.SourceOptions, qperformancePara.StartDate, qperformancePara.EndDate, qperformancePara.CondContent, qperformancePara.CondParas, qperformancePara.Orderby, qperformancePara.From, qperformancePara.Limit, qperformancePara.Count)
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {

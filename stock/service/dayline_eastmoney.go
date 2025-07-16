@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GetKLine 获取某只股票的分钟线到年线的数据
@@ -269,17 +270,19 @@ func strToFloat(value string) (float64, error) {
 // RefreshDayLine 刷新所有股票的日线数据，beg为负数的时候从已有的最新数据开始更新
 func (svc *DayLineService) RefreshDayLine(beg int64) error {
 	processLog := GetProcessLogService().StartLog("dayline", "RefreshDayLine", "")
-	routinePool := thread.CreateRoutinePool(1, svc.AsyncUpdateDayLine, nil)
-	defer routinePool.Release()
 	tsCodes, _ := GetShareService().GetShareCache()
+	i := 0
 	for _, tsCode := range tsCodes {
-		para := make([]interface{}, 0)
-		para = append(para, tsCode)
-		para = append(para, beg)
-		para = append(para, 10000)
-		routinePool.Invoke(para)
+		_, err := svc.GetUpdateDayline(tsCode, beg, 10000)
+		if err != nil {
+			logger.Sugar.Errorf("RefreshDayLine Error:%v,%v", tsCode, err.Error())
+		}
+		i++
+		if i > 100 {
+			i = 0
+			time.Sleep(1 * time.Second)
+		}
 	}
-	routinePool.Wait(nil)
 	GetProcessLogService().EndLog(processLog, "", "")
 
 	return nil

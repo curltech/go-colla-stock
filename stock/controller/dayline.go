@@ -341,6 +341,7 @@ type DayLinePara struct {
 	Limit          int           `json:"limit,omitempty"`
 	Orderby        string        `json:"orderby,omitempty"`
 	Count          int64         `json:"count,omitempty"`
+	Keyword        string        `json:"keyword,omitempty"`
 	TsCode         string        `json:"ts_code,omitempty"`
 	Industry       string        `json:"industry,omitempty"`
 	Sector         string        `json:"sector,omitempty"`
@@ -368,7 +369,7 @@ func (ctl *DayLineController) Search(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.DayLineService)
-	ps, count, err := svc.Search(dayLinePara.TsCode, dayLinePara.Industry, dayLinePara.Sector, dayLinePara.StartDate, dayLinePara.EndDate, dayLinePara.Orderby, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
+	ps, count, err := svc.Search(dayLinePara.Keyword, dayLinePara.Industry, dayLinePara.TradeDate, dayLinePara.CondContent, dayLinePara.CondParas, dayLinePara.Orderby, dayLinePara.From, dayLinePara.Limit, dayLinePara.Count)
 	if err != nil {
 		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
