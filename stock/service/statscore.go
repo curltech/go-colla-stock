@@ -57,7 +57,7 @@ func (svc *StatScoreService) NewEntities(data []byte) (interface{}, error) {
 	return &entities, err
 }
 
-func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, orderby string, from int, limit int, count int64) ([]*entity.StatScore, int64, error) {
+func (svc *StatScoreService) Search(keyword string, terms []int, orderby string, from int, limit int, count int64) ([]*entity.StatScore, int64, error) {
 	termConds, termParas := stock.InBuildInt("term", terms)
 	paras := make([]interface{}, 0)
 	conds := termConds
@@ -67,11 +67,6 @@ func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, 
 		paras = append(paras, keyword+"%")
 		paras = append(paras, keyword+"%")
 		paras = append(paras, strings.ToLower(keyword)+"%")
-	}
-	if tscode != "" {
-		tscodeConds, tscodeParas := stock.InBuildStr("tscode", tscode, ",")
-		conds = conds + " and " + tscodeConds
-		paras = append(paras, tscodeParas...)
 	}
 	statScores := make([]*entity.StatScore, 0)
 	var err error
@@ -85,6 +80,38 @@ func (svc *StatScoreService) Search(keyword string, tscode string, terms []int, 
 	if orderby == "" {
 		orderby = "tscode,term"
 	}
+	err = svc.Find(&statScores, nil, orderby, from, limit, conds, paras...)
+	if err != nil {
+		return nil, count, err
+	}
+	i := 1
+	for _, statScore := range statScores {
+		statScore.Id = uint64(from + i)
+		i++
+	}
+
+	return statScores, count, nil
+}
+
+func (svc *StatScoreService) FindStatScoreBy(tsCode string, terms []int, orderby string, from int, limit int, count int64) ([]*entity.StatScore, int64, error) {
+	tscodeConds, tscodeParas := stock.InBuildStr("tscode", tsCode, ",")
+	termConds, termParas := stock.InBuildInt("term", terms)
+	paras := make([]interface{}, 0)
+	conds := tscodeConds + " and " + termConds
+	paras = append(paras, tscodeParas...)
+	paras = append(paras, termParas...)
+	var err error
+	condiBean := &entity.StatScore{}
+	if count == 0 {
+		count, err = svc.Count(condiBean, conds, paras...)
+		if err != nil {
+			return nil, count, err
+		}
+	}
+	if orderby == "" {
+		orderby = "tscode,term"
+	}
+	statScores := make([]*entity.StatScore, 0)
 	err = svc.Find(&statScores, nil, orderby, from, limit, conds, paras...)
 	if err != nil {
 		return nil, count, err

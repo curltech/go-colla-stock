@@ -45,7 +45,7 @@ func (ctl *StatScoreController) Search(ctx iris.Context) {
 		return
 	}
 	svc := ctl.BaseService.(*service.StatScoreService)
-	ps, count, err := svc.Search(statScorePara.Keyword, statScorePara.TsCode, statScorePara.Terms, statScorePara.Orderby, statScorePara.From, statScorePara.Limit, statScorePara.Count)
+	ps, count, err := svc.Search(statScorePara.Keyword, statScorePara.Terms, statScorePara.Orderby, statScorePara.From, statScorePara.Limit, statScorePara.Count)
 	if err != nil {
 		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
 		if err != nil {
@@ -56,6 +56,44 @@ func (ctl *StatScoreController) Search(ctx iris.Context) {
 	result := make(map[string]interface{})
 	result["count"] = count
 	result["data"] = ps
+	err = ctx.JSON(result)
+	if err != nil {
+		return
+	}
+}
+
+func (ctl *StatScoreController) FindQStatBy(ctx iris.Context) {
+	statScorePara := &StatScorePara{}
+	err := ctx.ReadJSON(&statScorePara)
+	if err != nil {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+
+		return
+	}
+	if statScorePara.TsCode == "" {
+		err := ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+
+		return
+	}
+	svc := ctl.BaseService.(*service.StatScoreService)
+	ps, count, err := svc.FindStatScoreBy(statScorePara.TsCode, statScorePara.Terms, statScorePara.Orderby, statScorePara.From, statScorePara.Limit, statScorePara.Count)
+	if err != nil {
+		err = ctx.StopWithJSON(iris.StatusInternalServerError, err.Error())
+		if err != nil {
+			return
+		}
+
+		return
+	}
+	result := make(map[string]interface{})
+	result["data"] = ps
+	result["count"] = count
 	err = ctx.JSON(result)
 	if err != nil {
 		return
