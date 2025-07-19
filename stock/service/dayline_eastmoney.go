@@ -273,6 +273,13 @@ func (svc *DayLineService) RefreshDayLine(beg int64) error {
 	tsCodes, _ := GetShareService().GetShareCache()
 	i := 0
 	for _, tsCode := range tsCodes {
+		share := GetShareService().GetCacheShare(tsCode)
+		if share == nil {
+			continue
+		}
+		if share.ListStatus != "L" && share.DelistDate != "" {
+			continue
+		}
 		_, err := svc.GetUpdateDayline(tsCode, beg, 10000)
 		if err != nil {
 			logger.Sugar.Errorf("RefreshDayLine Error:%v,%v", tsCode, err.Error())

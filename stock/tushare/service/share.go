@@ -27,6 +27,9 @@ func StockBasic(params ShareRequest) (tsData []*entity.Share, err error) {
 
 func assembleStockBasic(tsRsp *TushareResponse) []*entity.Share {
 	var tsData []*entity.Share
+	if tsRsp.Data == nil {
+		return nil
+	}
 	for _, data := range tsRsp.Data.Items {
 		body, err := ReflectResponseData(tsRsp.Data.Fields, data)
 		if err == nil {
