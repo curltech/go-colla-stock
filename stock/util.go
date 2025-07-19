@@ -68,11 +68,17 @@ func CurrentDate() int64 {
 	return v.(int64)
 }
 
-func AddDay(tradeDate int64, days int) int64 {
+func GetTime(tradeDate int64) time.Time {
 	year := tradeDate / 10000
 	month := (tradeDate - year*10000) / 100
 	day := tradeDate - year*10000 - month*100
-	timeTradeDate := time.Date(int(year), time.Month(month), int(day), 0, 0, 0, 0, time.UTC).AddDate(0, 0, days)
+	timeDate := time.Date(int(year), time.Month(month), int(day), 0, 0, 0, 0, time.UTC)
+
+	return timeDate
+}
+
+func AddDay(tradeDate int64, days int) int64 {
+	timeTradeDate := GetTime(tradeDate).AddDate(0, 0, days)
 	timeStr := timeTradeDate.Format("20060102")
 	v, _ := convert.ToObject(timeStr, "int64")
 

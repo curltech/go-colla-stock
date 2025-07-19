@@ -152,10 +152,10 @@ func FastGet(urlStr string, requestParam interface{}) ([]byte, error) {
 	//logger.Sugar.Infof("fasthttp get: %v", uri)
 	status, resp, err := fasthttp.Get(nil, uri)
 	if err != nil {
-		logger.Sugar.Errorf("fasthttp Get fail:", err.Error())
+		logger.Sugar.Errorf("fasthttp Get fail:%v", err.Error())
 		status, resp, err = fasthttp.Get(nil, uri)
 		if err != nil {
-			logger.Sugar.Errorf("second fasthttp Get fail:", err.Error())
+			logger.Sugar.Errorf("second fasthttp Get fail:%v", err.Error())
 			return nil, err
 		}
 	}
@@ -308,7 +308,7 @@ var dayline_token = "fa5fd1943c7b386f172d6893dbfba10b"
 var dayline_type = "1638513559443"
 
 func DayLineFastGet(requestParam DayLineRequestParam) ([]byte, error) {
-	resp, err := FastGet(dayline_url, requestParam)
+	resp, err := Get(dayline_url, requestParam)
 	if err != nil {
 		fmt.Println("Get fail:", err.Error())
 		return nil, err

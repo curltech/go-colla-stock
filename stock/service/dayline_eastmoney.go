@@ -336,6 +336,12 @@ func (svc *DayLineService) UpdateDayline(secId string, beg int64, limit int) ([]
 			beg = stock.AddDay(previous[0].TradeDate, 1)
 		}
 	}
+	if beg > 0 {
+		weekday := stock.GetTime(beg).Weekday()
+		if weekday == time.Saturday || weekday == time.Sunday {
+			return nil, errors.New("date is Saturday or Sunday")
+		}
+	}
 	today := stock.CurrentDate()
 	if beg > 0 && beg > today {
 		return nil, errors.New("data is updated")

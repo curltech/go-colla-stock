@@ -239,14 +239,19 @@ func (svc *ShareService) UpdateShares() {
 	}
 	for _, share := range shares {
 		sh := &entity.Share{TsCode: share.Symbol}
+		symbol := share.TsCode
+		share.TsCode = share.Symbol
+		share.Symbol = symbol
+		py := getPinYin(share.Name)
+		share.PinYin = py
 		ok, _ := svc.Get(sh, false, "", "", nil)
 		if !ok {
-			symbol := share.TsCode
-			share.TsCode = share.Symbol
-			share.Symbol = symbol
-			py := getPinYin(share.Name)
-			share.PinYin = py
 			_, err := svc.Insert(share)
+			if err != nil {
+				logger.Sugar.Errorf("Error:%v", err.Error())
+			}
+		} else {
+			_, err := svc.Update(share, nil, "")
 			if err != nil {
 				logger.Sugar.Errorf("Error:%v", err.Error())
 			}
