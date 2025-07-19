@@ -66,7 +66,7 @@ type ForecastResponseResult struct {
 }
 
 func ForecastFastGet(requestParam ForecastRequestParam) ([]byte, error) {
-	resp, err := eastmoney.Get("http://datacenter-web.eastmoney.com/securities/api/data/v1/get", requestParam)
+	resp, err := eastmoney.FastGet("http://datacenter-web.eastmoney.com/securities/api/data/v1/get", requestParam)
 	if err != nil {
 		fmt.Println("Get fail:", err.Error())
 		return nil, err

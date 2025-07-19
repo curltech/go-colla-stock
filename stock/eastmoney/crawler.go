@@ -199,7 +199,7 @@ func Get(url string, requestParam interface{}) ([]byte, error) {
 }
 
 func ReportFastGet(requestParam ReportRequestParam) ([]byte, error) {
-	resp, err := Get(report_url, requestParam)
+	resp, err := FastGet(report_url, requestParam)
 	if err != nil {
 		fmt.Println("fasthttp Get fail:", err.Error())
 		return nil, err
@@ -308,7 +308,7 @@ var dayline_token = "fa5fd1943c7b386f172d6893dbfba10b"
 var dayline_type = "1638513559443"
 
 func DayLineFastGet(requestParam DayLineRequestParam) ([]byte, error) {
-	resp, err := Get(dayline_url, requestParam)
+	resp, err := FastGet(dayline_url, requestParam)
 	if err != nil {
 		fmt.Println("Get fail:", err.Error())
 		return nil, err
@@ -332,7 +332,7 @@ var day_fflow_token = "b2884a393a59ad64002292a3e90d46a5"
 var day_fflow_type = "1638372426494"
 
 func FinanceFlowFastGet(requestParam DayLineRequestParam) ([]byte, error) {
-	resp, err := Get(day_fflow_url, requestParam)
+	resp, err := FastGet(day_fflow_url, requestParam)
 	if err != nil {
 		fmt.Println("Get fail:", err.Error())
 		return nil, err
@@ -365,7 +365,7 @@ var today_ff_token = "b2884a393a59ad64002292a3e90d46a5"
 var today_ff_type = "1638371480346"
 
 func TodayFastGet(requestParam DayLineRequestParam) ([]byte, error) {
-	resp, err := Get(today_url, requestParam)
+	resp, err := FastGet(today_url, requestParam)
 	if err != nil {
 		fmt.Println("Get fail:", err.Error())
 		return nil, err
@@ -380,7 +380,7 @@ func TodayFastGet(requestParam DayLineRequestParam) ([]byte, error) {
 }
 
 func TodayFfFastGet(requestParam DayLineRequestParam) ([]byte, error) {
-	resp, err := Get(today_ff_url, requestParam)
+	resp, err := FastGet(today_ff_url, requestParam)
 	if err != nil {
 		fmt.Println("Get fail:", err.Error())
 		return nil, err
